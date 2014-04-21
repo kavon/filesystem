@@ -64,6 +64,14 @@ struct action {
     { NULL, NULL }	// end marker, do not remove
 };
 
+struct fileHeader
+{
+	bool isDirectory;
+	fileHeader *parent;
+	void * contents;
+	unsigned int size;
+}
+
 /*--------------------------------------------------------------------------------*/
 
 void parse(char *buf, int *argc, char *argv[]);
