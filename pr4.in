@@ -1,0 +1,24 @@
+root  
+print
+mkdir a
+mkdir b
+mkdir c
+chdir c
+mkdir d
+chdir d
+mkdir e
+mkfil f 1024
+print
+mvfil f g
+print
+szfil f 4096
+szfil g 4096
+print
+rmfil g
+print
+chdir ..
+rmdir e
+rmdir h
+mvdir e h
+print
+exit
