@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <string.h>
 
+#include "partitioner.h"
+
 /*--------------------------------------------------------------------------------*/
 
 int debug = 0;	// extra output; 1 = on, 0 = off
@@ -67,10 +69,10 @@ struct action {
 struct fileHeader
 {
 	bool isDirectory;
-	fileHeader *parent;
+	struct fileHeader *parent;
 	void * contents;
 	unsigned int size;
-}
+};
 
 /*--------------------------------------------------------------------------------*/
 
@@ -82,6 +84,10 @@ void parse(char *buf, int *argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
+  // TESTING, REMOVE LATER
+  initialize("./partition.data", 40960);
+
+
   char in[LINESIZE];
   char *cmd, *fnm, *fsz;
   char dummy[] = "";

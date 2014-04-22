@@ -24,3 +24,8 @@
 
 # mac stuff
 .DS_Store
+
+# lets not commit these:
+*.data
+pr4
+
