@@ -30,7 +30,7 @@ int initialize(char* filename, uint64_t numBytes);
  * Prints info about the state of the partition (descriptor block and free block table stats)
  * to the specified file descriptor.
  */
-//void printInfo(FILE *dest);
+void printInfo(FILE *dest);
 
 /**
  * Resizes an already allocated block in this partition, potentially moving it,
@@ -39,31 +39,33 @@ int initialize(char* filename, uint64_t numBytes);
  * Passing NULL in for the ptr is equivalent to calling allocate_block.
  * 
  */
-//block_id resize_block(block_id blk, block_size_t size);
+block_id resize_block(block_id blk, block_size_t size);
 
 /**
  * Allocates a new block in the partition.
  */
-//block_id allocate_block(block_size_t size);
+block_id allocate_block(block_size_t size);
 
 /**
  * Frees the given block.
  * Do not call free on an already freed block.
  */
-//void free_block(block_id blk);
+void free_block(block_id blk);
 
 /**
  * Copies at most numBytes bytes from this block into the specified pointer.
  * Use this to read the block, and you can modify and save it back.
  */
-//void load_block(block_id blk, void* destination, size_t numBytes);
+void load_block(block_id blk, void* destination, size_t numBytes);
 
 /**
  * Overwrites the block's contents (starting at the beginning of the block) with
  * at most min(numBytes, block size) bytes, effectively saving it to the disk. 
  * 
  */
-//void save_block(block_id blk, void *source, size_t numBytes);
+void save_block(block_id blk, void *source, size_t numBytes);
 
  
 #endif /* __PARTITION_H */
+
+

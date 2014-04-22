@@ -9,7 +9,7 @@ static void* partDir;
 // 4kb sectors
 const uint64_t SECTOR_SIZE = 4096;
 
-					// little endian machines flip these
+// little endian machines flip these Magic values.
 const uint64_t ALLOCATED =  0xEDA70C110A;
 const uint64_t FREE = 0xEEF4EEF4;
 
@@ -48,18 +48,32 @@ count	 -	 the number of the objects to be written
 
 */
 
+void readPartition(uint64_t offset, void *data, uint64_t numBytes) {
+	rewind(part);
+	fread(data, numBytes, 1, part);
+	rewind(part);
+}
+
 // Offset from the beginning of the file.
 void writePartition(uint64_t offset, void *data, uint64_t numBytes) {
+	rewind(part);
 	if(fseek(part, offset, SEEK_SET)) {
 		// TODO: catch error
 	}
 	
-	if(fwrite(data, numBytes, 1, part) != numBytes) {
+	if(fwrite(data, numBytes, 1, part) != 1) {
 		//TODO: catch error
 	}
 
 	rewind(part);
 }
+
+//////
+//
+// PUBLICLY ACCESSIBLE FUNCTIONS BELOW.
+//
+/////
+
 
 /**
  * Creates a file represting our file system partition on
@@ -78,13 +92,24 @@ int initialize(char* filename, uint64_t numBytes) {
 	bool fileAlreadyExists = (access(filename, F_OK ) != -1);
 	part = fopen(filename, "w+"); // open for read/write, at beginning
 
-	if(fileAlreadyExists) {
+	if(part == NULL) {
+		printf("Unable to open file!\n");
+		return 2;
+	}
 
+	if(fileAlreadyExists) {
+		// need to know how big the partition directory is
 		uint64_t size;
+		rewind(part);
 		fread(&size, 8, 1, part);
 		// TODO: error check
+
+		// make space for it in memory
 		partDir = malloc(size);
+		// copy directory to memory.
+		rewind(part);
 		fread(partDir, 1, size, part);
+		rewind(part);
 
 	} else {
 
@@ -114,18 +139,36 @@ int initialize(char* filename, uint64_t numBytes) {
 		newBlock.next_id = 0;
 
 		writePartition(0, dirPtr, size);
+
+		// now we need to fill the file in with enough space for the sectors to
+		// have it simulate being a hard drive.
+		uint8_t *zeroed_sector = calloc(1, SECTOR_SIZE);
+
+		fseek(part, size, SEEK_SET); // start at the end of the partition directory.
+		for(unsigned long i = 0; i < numSectors; i++) {			
+			if(fwrite(zeroed_sector, SECTOR_SIZE, 1, part) != 1) {
+				printf("Unable to completely allocate the partition!!\n");
+				return 1;
+			}
+		}
+		rewind(part);
+		free(zeroed_sector);
+
+		// now we need to initialize the initial free block
 		writePartition(dirPtr->free_block_id, &newBlock, sizeof(block_header));
 
 	}
 
-
+	return 0;
 }
 
 /**
  * Prints info about the state of the partition (descriptor block and free block table stats)
  * to the specified file descriptor.
  */
-//void printInfo(FILE *dest);
+void printInfo(FILE *dest) {
+	fprintf(dest, "Hello, the partition stats should be here.\n");
+}
 
 /**
  * Resizes an already allocated block in this partition, potentially moving it,
@@ -134,28 +177,42 @@ int initialize(char* filename, uint64_t numBytes) {
  * Passing NULL in for the ptr is equivalent to calling allocate_block.
  * 
  */
-//block_id resize_block(block_id blk, block_size_t size);
+block_id resize_block(block_id blk, block_size_t size) {
+
+}
 
 /**
  * Allocates a new block in the partition.
  */
-//block_id allocate_block(block_size_t size);
+block_id allocate_block(block_size_t size) {
+
+}
 
 /**
  * Frees the given block.
  * Do not call free on an already freed block.
  */
-//void free_block(block_id blk);
+void free_block(block_id blk) {
+
+}
 
 /**
  * Copies at most numBytes bytes from this block into the specified pointer.
  * Use this to read the block, and you can modify and save it back.
  */
-//void load_block(block_id blk, void* destination, size_t numBytes);
+void load_block(block_id blk, void* destination, size_t numBytes) {
+	readPartition(blk, destination, numBytes);
+}
 
 /**
  * Overwrites the block's contents (starting at the beginning of the block) with
  * at most min(numBytes, block size) bytes, effectively saving it to the disk. 
  * 
  */
-//void save_block(block_id blk, void *source, size_t numBytes);
+void save_block(block_id blk, void *source, size_t numBytes) {
+	writePartition(blk, source, numBytes);
+}
+
+
+
+
