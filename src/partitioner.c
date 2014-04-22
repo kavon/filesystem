@@ -100,16 +100,13 @@ int initialize(char* filename, uint64_t numBytes) {
 	if(fileAlreadyExists) {
 		// need to know how big the partition directory is
 		uint64_t size;
-		rewind(part);
-		fread(&size, 8, 1, part);
+		readPartition(0, &size, 8);
 		// TODO: error check
 
 		// make space for it in memory
 		partDir = malloc(size);
 		// copy directory to memory.
-		rewind(part);
-		fread(partDir, 1, size, part);
-		rewind(part);
+		readPartition(0, partDir, size);
 
 	} else {
 
