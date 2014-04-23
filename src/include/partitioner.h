@@ -49,7 +49,7 @@ void printInfo(FILE *dest);
  * Resizes an already allocated block in this partition, potentially moving it,
  * so you should upate the pointer to the one that is returned.
  *
- * Passing NULL in for the ptr is equivalent to calling allocate_block.
+ * Passing 0 in for the blk is equivalent to calling allocate_block.
  * 
  */
 block_id resize_block(block_id blk, block_size_t size);
@@ -77,6 +77,44 @@ void load_block(block_id blk, void* destination, size_t numBytes);
  * 
  */
 void save_block(block_id blk, void *source, size_t numBytes);
+
+/*
+	Example usage of this interface:
+
+	// make space for a new 1KB file on the disk
+	block_id blk = allocate_block(1024 + sizeof(fileHeader));
+
+	// initialize the header for this file.
+	fileHeader fh;
+	fh.isDirectory = false;
+	fh.parent = NULL;
+	fh.size = 1024;
+	fh.contents = blk + sizeof(fileHeader); // note that this is a block_id, not void*
+	
+	save_block(blk, &fh, sizeof(fileHeader));
+
+	// now, lets fill it with content!
+	int buf = malloc(1024);
+
+	// write cool stuff to buf, etc...
+
+	save_block(fh.contents, buf, fh.size);
+
+	// Don't need that buffer anymore, we saved to disk.
+	free(buf);
+
+	// now, suppose that this is the root file (and this was a directory)
+	// then we should save this as the root of the filesystem like so:
+
+	saveRootID(blk);
+
+	// If this was a file/directory that has a parent, the parent needs to be
+	// made aware of the block_id.
+	
+	// You can safely think of the block_id as a pointer address (with arithmetic supported too)
+	// that you have to call save/load with a buffer in order to read/modify the data.
+
+*/
 
  
 #endif /* __PARTITION_H */

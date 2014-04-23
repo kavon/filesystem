@@ -235,10 +235,15 @@ void printInfo(FILE *dest) {
  * Resizes an already allocated block in this partition, potentially moving it,
  * so you should upate the pointer to the one that is returned.
  *
- * Passing NULL in for the ptr is equivalent to calling allocate_block.
+ * Passing 0 in for the blk is equivalent to calling allocate_block.
  * 
  */
 block_id resize_block(block_id blk, block_size_t size) {
+
+	if(blk == 0) {
+		return allocate_block(size);
+	}
+
 	block_header head;
 	readPartition(blk, &head, sizeof(block_header));
 
