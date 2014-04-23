@@ -18,6 +18,7 @@ typedef struct directory {
 	uint64_t size; // everything, including bitmap stuff.
 	uint64_t alloc_block_id;
 	uint64_t free_block_id;
+	uint64_t root_dir_id;
 	uint64_t num_sectors;
 	uint64_t sector_size;
 } directory;
@@ -570,6 +571,25 @@ void load_block(block_id blk, void* destination, size_t numBytes) {
 void save_block(block_id blk, void *source, size_t numBytes) {
 	//TODO: check that they're not writing past the end.
 	writePartition(blk + sizeof(block_header), source, numBytes);
+}
+
+/**
+ * Saves the block_id represting the root directory in our filesystem structure
+ * to the partition descriptor.
+ */
+void saveRootID(block_id id) {
+	((directory*)partDir)->root_dir_id = id;
+	 // no need to save the bitmap here anyway
+	writePartition(0, partDir, sizeof(directory));
+}
+
+/**
+ * Retrieves the block_id representing the root directory in this partition.
+ * If the returned value is equal to 0, then there does not exist a root directory
+ * that was saved to the descriptor.
+ */
+block_id getRootID() {
+	return ((directory*)partDir)->root_dir_id;
 }
 
 

@@ -12,7 +12,7 @@ typedef uint64_t block_id;
 typedef uint64_t block_size_t;
 
 /**
- * Creates a file represting our file system partition on
+ * Creates the file represting our file system partition on
  * in the current OS's filesystem.
  *
  * If the file specified already exists, it is simply loaded in order
@@ -25,6 +25,19 @@ typedef uint64_t block_size_t;
  *
  */
 int initialize(char* filename, uint64_t numBytes);
+
+/**
+ * Retrieves the block_id representing the root directory in this partition.
+ * If the returned value is equal to 0, then there does not exist a root directory
+ * that was saved to the descriptor.
+ */
+block_id getRootID();
+
+/**
+ * Saves the block_id represting the root directory in our filesystem structure
+ * to the partition descriptor.
+ */
+void saveRootID(block_id id);
 
 /**
  * Prints info about the state of the partition (descriptor block and free block table stats)
