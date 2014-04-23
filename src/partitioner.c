@@ -49,22 +49,37 @@ count	 -	 the number of the objects to be written
 
 */
 
+// Byte offset from the beginning of the file
 void readPartition(uint64_t offset, void *data, uint64_t numBytes) {
 	rewind(part);
-	fseek(part, offset, SEEK_SET);
-	fread(data, numBytes, 1, part);
+	// The amount of rewinding is likely excessive, but has nice guarentees.
+
+	if(fseek(part, offset, SEEK_SET)) {
+		fprintf(stderr, "Error: seeking within partition failed.\n");
+		_exit(0xbabecafe);
+	}
+
+	if(fread(data, numBytes, 1, part)) {
+		fprintf(stderr, "Error: reading from partition failed.\n");
+		_exit(0xcafebabe);
+	}
+	
 	rewind(part);
 }
 
 // Offset from the beginning of the file.
 void writePartition(uint64_t offset, void *data, uint64_t numBytes) {
 	rewind(part);
+	// The amount of rewinding is likely excessive, but has nice guarentees.
+
 	if(fseek(part, offset, SEEK_SET)) {
-		// TODO: catch error
+		fprintf(stderr, "Error: seeking within partition failed.\n");
+		_exit(0xbabecafe);
 	}
 	
 	if(fwrite(data, numBytes, 1, part) != 1) {
-		//TODO: catch error
+		fprintf(stderr, "Error: writing to partition failed.\n");
+		_exit(0xcafebabe);
 	}
 
 	rewind(part);
@@ -89,7 +104,10 @@ block_id look_left(block_id blk) {
 	// the very first possible block.
 	uint64_t currentBlk = partDir_size;
 
-	// note that we're not checking if blk is 0 cause that's not valid.
+	if(blk == 0) {
+		fprintf(stderr, "ERROR: shouldn't be asking for a block left of the partition descriptor!\n");
+		_exit(12345);
+	}
 
 	if(currentBlk == blk) {
 		// you're the first block, there's nothing to the left.
@@ -209,7 +227,7 @@ int initialize(char* filename, uint64_t numBytes) {
  * to the specified file descriptor.
  */
 void printInfo(FILE *dest) {
-	fprintf(dest, "Hello, the partition stats should be here.\n");
+	fprintf(dest, "Hello, the partition stats should be here, someone forgot to implement this function.\n");
 }
 
 /**
@@ -230,7 +248,7 @@ block_id resize_block(block_id blk, block_size_t size) {
 
 	block_id newBlockID = allocate_block(size);
 
-	// use fseek and fwrite and fread to copy data from old partition to the newly allocated one.
+	//TODO: use fseek and fwrite and fread to copy data from old partition to the newly allocated one.
 
 	free_block(blk);
 
@@ -257,18 +275,23 @@ block_id allocate_block(block_size_t request_size) {
 	}
 
 	if(current.magic != FREE) {
-		//TODO: Somebody done fucked up....
-		// not sure if its worth putting these checks in right now though.
+		// Somebody done fucked up....
+		fprintf(stderr, "Somehow, the free list contains an allocated block :O\n");
+		_exit(1231231);
+
+		// not sure if its worth putting these checks in everywhere because they're
+		// only caused by programming errors internal to this code, and it "looks good to me" (tm)
 	}
 	
-
+	// find the FIRST block that FITs.
 	while(current.size < size && current.next_id != 0) {
 		currentPosition = current.next_id;
 		readPartition(currentPosition, &current, sizeof(block_header));
 	}
 
 	if(current.size < size) {
-		fprintf(stderr, "Error: Not enough space for a %llu byte block.\n", size);
+		// then we must not have found a block large enough.
+		fprintf(stderr, "Error: There are no free blocks large enough for a %llu byte request!\n", size);
 		_exit(1);
 	}
 
@@ -277,11 +300,16 @@ block_id allocate_block(block_size_t request_size) {
 	block_id oldNext = current.next_id;
 	block_id oldPrev = current.previous_id;
 
-	// if the residual free block is less than 512 bytes, we give the whole block to the request...
+	// If the residual free block is less than 512 bytes, we give the whole block to the request...
 	// there's enough overhead to make that remaining amount of space almost useless anyway.
 
+	// If we were a little more clever, we'd overallocate slightly if it meant realignment
+	// for the block following this one.
+
 	if(oldSize - size >= 512) {
-		// chop off a new free block.
+		
+		// carve off a piece of this block for allocation.
+
 		block_header newFree;
 		newFree.magic = FREE;
 		newFree.next_id = oldNext;
@@ -293,7 +321,7 @@ block_id allocate_block(block_size_t request_size) {
 		// update previous and next blocks with this new block.
 		block_header temp;
 
-		// just note this block in the partition directory
+		// note this block in the partition directory
 		if(oldPrev == 0) {
 			dir->free_block_id = currentPosition + size;
 			writePartition(0, dir, sizeof(directory));
@@ -310,12 +338,14 @@ block_id allocate_block(block_size_t request_size) {
 		}
 
 	} else {
-		// otherwise, just link previous and next.
+		// We're taking the whole block, so, just link previous and next
+		// with each other to remove this block from the list.
+
 		block_header temp;
 
-		// just note this block in the partition directory
+		// just note the next block in the partition directory
 		if(oldPrev == 0) {
-			dir->free_block_id = currentPosition + size;
+			dir->free_block_id = oldNext;
 			writePartition(0, dir, sizeof(directory));
 		} else {
 			readPartition(oldPrev, &temp, sizeof(block_header));
@@ -330,19 +360,17 @@ block_id allocate_block(block_size_t request_size) {
 		}
 	}
 
-	// now, we need to add this newly allocated block to the allocated list.
-	// we keep these lists sorted by block id, so we must find the right position.
+	// now that free list is fixed, we need to add this newly allocated block
+	// to the allocated list. we keep these lists sorted by block id, so we must
+	// find the right position.
 
 	current.magic = ALLOCATED;
 	current.size = request_size;
 	current.previous_id = 0;
 	current.next_id = 0;
 
-	
-	uint64_t tempAllocPos = dir->alloc_block_id;
 
-	if(tempAllocPos == 0) {
-
+	if(dir->alloc_block_id == 0) {
 		// Nothing's allocated, just place this block id here.
 		dir->alloc_block_id = currentPosition;
 		writePartition(0, dir, sizeof(directory));
@@ -351,8 +379,10 @@ block_id allocate_block(block_size_t request_size) {
 		writePartition(currentPosition, &current, sizeof(block_header));
 
 	} else {
-		// find an appropraite place.
+		// find the appropriate place.
+		uint64_t tempAllocPos = dir->alloc_block_id;
 		block_header tempAlloc;
+
 		readPartition(tempAllocPos, &tempAlloc, sizeof(block_header));
 		while(tempAlloc.next_id != 0 && tempAlloc.next_id < currentPosition) {
 			tempAllocPos = tempAlloc.next_id;
@@ -361,12 +391,12 @@ block_id allocate_block(block_size_t request_size) {
 
 		// stick this block after the current block.
 		
-		// new previous
+		// new block comes after the block we found
 		block_id oldNext = tempAlloc.next_id;
 		tempAlloc.next_id = currentPosition;
 		writePartition(tempAllocPos, &tempAlloc, sizeof(block_header));
 
-		// new next
+		// and before that block's next block
 		if(oldNext != 0) {
 			readPartition(oldNext, &tempAlloc, sizeof(block_header));
 			tempAlloc.previous_id = currentPosition;
@@ -410,6 +440,12 @@ void free_block(block_id blk) {
 	
 	readPartition(blk, &currentHead, sizeof(block_header));
 
+	if(currentHead.magic != ALLOCATED) {
+		fprintf(stderr, "You're trying to free a block that is not allocated!\n");
+		_exit(31337);
+	}
+
+	newFree_id = blk;
 	newFree.magic = FREE;
 	newFree.size = currentHead.size;
 
@@ -436,12 +472,12 @@ void free_block(block_id blk) {
 		newFree.size += rightHead.size + sizeof(block_header);
 	}
 
-	// NOW ADJUST POINTERS
+	
+	// By the property that the free list is _ordered_, by block_id, we
+	// adjust the pointers very simply:
 	if(leftHead.magic == FREE && rightHead.magic == FREE) {
 		// hit the jackpot here... this block is between two free blocks.
-		// by the property that the free list is _ordered_ by block_id, we
-		// adjust the pointers very simply:
-
+		
 		newFree.previous_id = leftHead.previous_id;
 		newFree.next_id = rightHead.next_id;
 
@@ -463,8 +499,6 @@ void free_block(block_id blk) {
 		block_id guy = ((directory*)partDir)->free_block_id;
 		readPartition(guy, &guyInfo, sizeof(block_header));
 
-		// BE CAREFUL AROUND STUFF HERE, PARTDIR'S THING MIGHT BE 0, CHECK OTHER CODE.
-
 		if(guy == 0) {
 			// there are no free blocks, you're the first and only one.
 			newFree.previous_id = 0;
@@ -482,8 +516,14 @@ void free_block(block_id blk) {
 				// you're about to become the new first free block.
 				newFree.previous_id = 0;
 				newFree.next_id = guy;
+
 				((directory*)partDir)->free_block_id = newFree_id;
 				writePartition(0, partDir, sizeof(directory));
+				
+				guyInfo.previous_id = newFree_id;
+				writePartition(guy, &guyInfo, sizeof(block_header));
+				
+
 			} else {
 
 				readPartition(guyInfo.next_id, &rightHead, sizeof(block_header));
@@ -502,23 +542,15 @@ void free_block(block_id blk) {
 				newFree.previous_id = oldPrev;
 
 				writePartition(newFree.previous_id, &guyInfo, sizeof(block_header));
-				writePartition(newFree_id, &newFree, sizeof(block_header));
 				writePartition(newFree.next_id, &rightHead, sizeof(block_header));
-
-				//TODO: Make sure there's no errors here.
-
 			}
-
-
 		}
-
 	}
 
-	// if previous_id is 0, update the partition directory.
+	// and finally, after adjustments have been made, we write the block.
+	writePartition(newFree_id, &newFree, sizeof(block_header));
 
-	// UPDATE THE BITMAP
-
-
+	//TODO: UPDATE THE BITMAP
 }
 
 /**
