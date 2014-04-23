@@ -158,6 +158,24 @@ int do_print(char *name, char *size)
 int do_chdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+  
+  uint64_t numOfBytes = strtoull(size, NULL, 0);
+  
+  //move up one level
+  if(name == '..')
+  {
+  	//find what we are currently pointed to
+  	//find the parent of that
+  	//initialize(parent, numOfBytes??);
+  	
+  }
+  
+  //move down one level to specified directory
+  else
+  {
+  	initialize(name, numOfBytes);
+  }
+  
   return -1;
 }
 
