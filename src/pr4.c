@@ -90,7 +90,11 @@ int main(int argc, char *argv[])
   block_id two = allocate_block(0xBC);
   block_id three = allocate_block(0x77);
 
-  
+  //fprintf(stderr, "%llu <- %s (%llu) -> %llu\n", look_left(one), "one", one, look_right(one));
+  //fprintf(stderr, "%llu <- %s (%llu) -> %llu\n", look_left(two), "two", two, look_right(two));
+  //fprintf(stderr, "%llu <- %s (%llu) -> %llu\n", look_left(three), "three", three, look_right(three));
+
+  // END OF TESTING
 
 
   char in[LINESIZE];

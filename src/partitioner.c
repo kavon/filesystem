@@ -70,6 +70,46 @@ void writePartition(uint64_t offset, void *data, uint64_t numBytes) {
 	rewind(part);
 }
 
+// we identify the block physically adjacent s.t. it follows the specified block
+block_id look_right(block_id blknum) {
+	block_header bh;
+	readPartition(blknum, &bh, sizeof(block_header));
+
+	uint64_t next = blknum + sizeof(block_header) + bh.size;
+	if(next >= partDir_size + (((directory*)partDir)->num_sectors * ((directory*)partDir)->sector_size)) {
+		// this is the last block in the filesystem.
+		return 0;
+	}
+
+	return next;
+}
+
+// we identify the block physically adjacent s.t. it precedes the specified block
+block_id look_left(block_id blk) {
+	// the very first possible block.
+	uint64_t currentBlk = partDir_size;
+
+	// note that we're not checking if blk is 0 cause that's not valid.
+
+	if(currentBlk == blk) {
+		// you're the first block, there's nothing to the left.
+		return 0;
+	}
+
+	uint64_t nextBlk = look_right(currentBlk);
+	while(nextBlk != blk && nextBlk != 0) {
+		currentBlk = nextBlk;
+		nextBlk = look_right(currentBlk);
+	}
+
+	if(nextBlk == 0) {
+		fprintf(stderr, "ERROR: something went wrong in look_left!\n");
+		_exit(1337);
+	}
+
+	return currentBlk;
+}
+
 //////
 //
 // PUBLICLY ACCESSIBLE FUNCTIONS BELOW.
@@ -180,7 +220,21 @@ void printInfo(FILE *dest) {
  * 
  */
 block_id resize_block(block_id blk, block_size_t size) {
-	return 0;
+	block_header head;
+	readPartition(blk, &head, sizeof(block_header));
+
+	// it's already big enough.
+	if(head.size >= size) {
+		return blk;
+	}
+
+	block_id newBlockID = allocate_block(size);
+
+	// use fseek and fwrite and fread to copy data from old partition to the newly allocated one.
+
+	free_block(blk);
+
+	return newBlockID;
 }
 
 /**
@@ -344,8 +398,126 @@ block_id allocate_block(block_size_t request_size) {
 /**
  * Frees the given block.
  * Do not call free on an already freed block pls.
+ * Coalesces adjacent blocks.
  */
 void free_block(block_id blk) {
+	block_id left_id = look_left(blk);
+	block_id right_id = look_right(blk);
+	block_id newFree_id;
+
+	block_header leftHead, rightHead, currentHead;
+	block_header newFree;
+	
+	readPartition(blk, &currentHead, sizeof(block_header));
+
+	newFree.magic = FREE;
+	newFree.size = currentHead.size;
+
+	if(left_id != 0) {
+		readPartition(left_id, &leftHead, sizeof(block_header));
+	}
+
+	if(right_id != 0) {
+		readPartition(right_id, &rightHead, sizeof(block_header));
+	}
+
+	// yeah... the below logic could be optimized, but it's 4am
+
+	// ADJUST SIZE OF NEW FREE BLOCK
+	if(leftHead.magic == FREE) {
+		// we can extend left!
+		newFree_id = left_id;
+		// we add the _entire_ left block, we already account for header space from our old size.
+		newFree.size += leftHead.size + sizeof(block_header);
+	}
+
+	if(rightHead.magic == FREE) {
+		// aww yiss, we can extend right 
+		newFree.size += rightHead.size + sizeof(block_header);
+	}
+
+	// NOW ADJUST POINTERS
+	if(leftHead.magic == FREE && rightHead.magic == FREE) {
+		// hit the jackpot here... this block is between two free blocks.
+		// by the property that the free list is _ordered_ by block_id, we
+		// adjust the pointers very simply:
+
+		newFree.previous_id = leftHead.previous_id;
+		newFree.next_id = rightHead.next_id;
+
+	} else if(leftHead.magic == FREE) {
+
+		newFree.previous_id = leftHead.previous_id;
+		newFree.next_id = leftHead.next_id;
+
+	} else if(rightHead.magic == FREE) {
+
+		newFree.previous_id = rightHead.previous_id;
+		newFree.next_id = rightHead.next_id;
+
+	} else {
+		// we're surrounded by allocated blocks, so we must traverse the
+		// free list and find the right place for this block.
+
+		block_header guyInfo;
+		block_id guy = ((directory*)partDir)->free_block_id;
+		readPartition(guy, &guyInfo, sizeof(block_header));
+
+		// BE CAREFUL AROUND STUFF HERE, PARTDIR'S THING MIGHT BE 0, CHECK OTHER CODE.
+
+		if(guy == 0) {
+			// there are no free blocks, you're the first and only one.
+			newFree.previous_id = 0;
+			newFree.next_id = 0;
+
+		} else {
+
+			while(guyInfo.next_id != 0 && guyInfo.next_id < newFree_id) {
+				guy = guyInfo.next_id;
+				readPartition(guy, &guyInfo, sizeof(block_header));
+			}
+
+
+			if(guyInfo.previous_id == 0) {
+				// you're about to become the new first free block.
+				newFree.previous_id = 0;
+				newFree.next_id = guy;
+				((directory*)partDir)->free_block_id = newFree_id;
+				writePartition(0, partDir, sizeof(directory));
+			} else {
+
+				readPartition(guyInfo.next_id, &rightHead, sizeof(block_header));
+				// the "left" is guy/guyInfo in this case.
+
+				// fix left
+				block_id oldNext = guyInfo.next_id;
+				guyInfo.next_id = newFree_id;
+
+				// fix right
+				block_id oldPrev = rightHead.previous_id;
+				rightHead.previous_id = newFree_id;
+
+				//fix new middle guy
+				newFree.next_id = oldNext;
+				newFree.previous_id = oldPrev;
+
+				writePartition(newFree.previous_id, &guyInfo, sizeof(block_header));
+				writePartition(newFree_id, &newFree, sizeof(block_header));
+				writePartition(newFree.next_id, &rightHead, sizeof(block_header));
+
+				//TODO: Make sure there's no errors here.
+
+			}
+
+
+		}
+
+	}
+
+	// if previous_id is 0, update the partition directory.
+
+	// UPDATE THE BITMAP
+
 
 }
 
