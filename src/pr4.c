@@ -85,7 +85,12 @@ void parse(char *buf, int *argc, char *argv[]);
 int main(int argc, char *argv[])
 {
   // TESTING, REMOVE LATER
-  initialize("./partition.data", 40960);
+  initialize("./partition.data", 16384);
+  block_id one = allocate_block(0x1A);
+  block_id two = allocate_block(0xBC);
+  block_id three = allocate_block(0x77);
+
+  
 
 
   char in[LINESIZE];

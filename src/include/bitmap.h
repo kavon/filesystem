@@ -6,6 +6,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 
 
 size_t createBitmap(uint64_t numBits, void* location, size_t size);

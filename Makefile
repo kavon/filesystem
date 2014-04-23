@@ -25,4 +25,7 @@ clean:
 	rm -f pr4
 	rm -f build/*
 
+clean-all: clean
+	rm -f *.data
+
 
