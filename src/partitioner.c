@@ -16,9 +16,9 @@ const uint64_t FREE = 0xEEF4EEF4;
 
 typedef struct directory {
 	uint64_t size; // everything, including bitmap stuff.
-	uint64_t alloc_block_id;
-	uint64_t free_block_id;
-	uint64_t root_dir_id;
+	block_id alloc_block_id;
+	block_id free_block_id;
+	block_id root_dir_id;
 	uint64_t num_sectors;
 	uint64_t sector_size;
 } directory;
@@ -26,8 +26,8 @@ typedef struct directory {
 typedef struct block_header {
 	uint64_t magic; // indicates allocated or free.
 	uint64_t size; // size of the _contents_ of this block.
-	uint64_t previous_id;
-	uint64_t next_id;
+	block_id previous_id;
+	block_id next_id;
 	// between here and the end of the block is the contents of the block.
 } block_header;
 
@@ -247,13 +247,27 @@ block_id resize_block(block_id blk, block_size_t size) {
 		return blk;
 	}
 
-	block_id newBlockID = allocate_block(size);
+	block_id newBlk = allocate_block(size);
+	if(newBlk == 0) {
+		fprintf(stderr, "Error: request to resize block in partition failed, not enough space!");
+		_exit(-1);
+	}
 
-	//TODO: use fseek and fwrite and fread to copy data from old partition to the newly allocated one.
+	void* buf = malloc(size);
+	if(buf == NULL) {
+		fprintf(stderr, "The file you're moving is quite large, and this version of the partitioner only supports files that can wholly fit in the heap.\n");
+		_exit(-1);
+	}
+
+	load_block(blk, buf, size);
+
+	save_block(newBlk, buf, size);
+
+	free(buf);
 
 	free_block(blk);
 
-	return newBlockID;
+	return newBlk;
 }
 
 /**
