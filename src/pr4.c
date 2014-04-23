@@ -142,6 +142,10 @@ int main(int argc, char *argv[])
 int do_root(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+  
+  uint64_t numOfBytes = strtoull(size, NULL, 0);
+  initialize(name, numOfBytes);
+  
   return -1;
 }
 
