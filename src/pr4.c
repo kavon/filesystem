@@ -72,7 +72,7 @@ typedef struct fileHeader
 	block_id parent;
 	unsigned int size;
 	block_id contents;
-  char name[128];
+  	char name[128];
 } fileHeader;
 
 fileHeader *currentDirectory;
@@ -197,6 +197,7 @@ int do_root(char *name, char *size)
   fh.parent = NULL;
   fh.size = numOfBytes;
   fh.contents = blk + sizeof(fileHeader);
+  fh.name = name;
   
   int buf = malloc(numOfBytes);
   
@@ -229,8 +230,8 @@ int do_chdir(char *name, char *size)
   if(name == '..')
   {
   	//find the parent of the currentDirectory
-  	fileHeader parentDirectory = currentDirectory.parent;
-  	currentDirectory = parentDirectory;
+  	block_id parentDirectory = currentDirectory.parent;
+  	//currentDirectory = parentDirectory;
   	
   }
   //move down one level to specified directory
