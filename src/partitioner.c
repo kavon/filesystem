@@ -86,7 +86,7 @@ block_id look_right(block_id blknum) {
 	block_header bh;
 	readPartition(blknum, &bh, sizeof(block_header));
 
-	uint64_t next = blknum + sizeof(block_header) + bh.size;
+	uint64_t next = blknum + bh.size + (bh.magic == ALLOCATED ? sizeof(block_header) : 0);
 	if(next >= sizeof(directory) + ((directory*)partDir)->partition_size) {
 		// this is the last block in the filesystem.
 		return 0;
@@ -489,7 +489,7 @@ void free_block(block_id blk) {
 		readPartition(right_id, &rightHead, sizeof(block_header));
 	}
 
-	fprintf(stderr, "Looking around, I see: %llu (free? %i) <- %llu -> %llu (free? %i)\n", left_id, leftHead.magic == FREE, blk, right_id, rightHead.magic == FREE);
+	//fprintf(stderr, "Looking around, I see: %llu (free? %i) <- %llu -> %llu (free? %i)\n", left_id, leftHead.magic == FREE, blk, right_id, rightHead.magic == FREE);
 
 	// yeah... the below logic could be optimized, but it's 4am
 
