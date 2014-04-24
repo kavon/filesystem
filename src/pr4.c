@@ -229,6 +229,8 @@ int do_mkdir(char *name, char *size)
   //notify parent of block id
   //currentDirectory.contents
   
+  currentDirectory = fh;
+  
   return -1;
 }
 
