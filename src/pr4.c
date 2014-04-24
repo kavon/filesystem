@@ -188,12 +188,13 @@ int do_chdir(char *name, char *size)
   if(name == '..')
   {
   	//find the parent of the currentDirectory
-  	char* parentName = currentDirectory.parent;
+  	char* parentDirectory = currentDirectory.parent;
+  	char* parentSize = currentDirectory.parent.size;
+  	uint64_t parentNumOfBytes = strtoull(parentSize, NULL, 0);
   	
-  	//initialize(parentName, numOfBytes??);
+  	initialize(parentDirectory, parentNumOfBytes);
   	
   }
-  
   //move down one level to specified directory
   else
   {
