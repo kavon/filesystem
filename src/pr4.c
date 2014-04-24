@@ -305,7 +305,7 @@ int do_mkfil(char *name, char *size)
   
   fileHeader fh;
   fh.isDirectory = false;
-  //fh.parent = NULL;
+  //fh.parent = currentDirectory.;
   fh.size = numOfBytes;
   fh.contents = blk + sizeof(fileHeader);
   
