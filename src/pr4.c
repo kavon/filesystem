@@ -178,7 +178,17 @@ int do_root(char *name, char *size)
   /*
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
-  block_id blk = allocate_block(1024 + sizeof(fileHeader));
+  if(name == NULL)
+  {
+  	initialize("./partition.data", 16384);
+  	numOfBytes = 16384
+  }
+  else
+  {
+  	initialize(name, numOfBytes);
+  }
+  
+  block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
   
   fileHeader fh;
   fh.isDirectory = true;
@@ -186,7 +196,7 @@ int do_root(char *name, char *size)
   fh.size = numOfBytes;
   fh.contents = blk + sizeof(fileHeader);
   
-  int buf = malloc(1024);
+  int buf = malloc(numOfBytes);
   
   save_block(fh.contents, buf, fh.size);
   
