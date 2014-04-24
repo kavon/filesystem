@@ -200,6 +200,28 @@ int do_chdir(char *name, char *size)
 int do_mkdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+  
+  uint64_t numOfBytes = strtoull(size, NULL, 0);
+  
+  initialize(name, numOfBytes);
+  
+  block_id blk = allocate_block(1024 + sizeof(fileHeader));
+  
+  fileHeader fh;
+  fh.isDirectory = true;
+  //fh.parent = ;
+  fh.size = numOfBytes;
+  fh.contents = blk + sizeof(fileHeader);
+  
+  int buf = malloc(1024);
+  
+  save_block(fh.contents, buf, fh.size);
+  
+  //Don't need that buffer anymore, we saved to disk
+  free(buf);
+  
+  //notify parent of block id
+  
   return -1;
 }
 
