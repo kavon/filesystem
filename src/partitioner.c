@@ -60,7 +60,7 @@ void readPartition(uint64_t offset, void *data, uint64_t numBytes) {
 		_exit(0xbabecafe);
 	}
 
-	if(fread(data, numBytes, 1, part)) {
+	if(fread(data, numBytes, 1, part) != 1) {
 		fprintf(stderr, "Error: reading from partition failed.\n");
 		_exit(0xcafebabe);
 	}
@@ -228,7 +228,37 @@ int initialize(char* filename, uint64_t numBytes) {
  * to the specified file descriptor.
  */
 void printInfo(FILE *dest) {
-	fprintf(dest, "Hello, the partition stats should be here, someone forgot to implement this function.\n");
+	fprintf(dest, "\n\t* Partition Information *\n\nAllocated Space:\n");
+
+	directory d = *((directory*)partDir);
+	block_size_t totalBytes = 0;
+
+	block_id i = d.alloc_block_id;
+	uint64_t numBlocks = 0;
+	block_header bh;
+	while(i != 0) {
+		readPartition(i, &bh, sizeof(block_header));
+		fprintf(dest, "offset %llu: %llu bytes  (%llu usable)\n", i, bh.size + sizeof(block_header), bh.size);
+		totalBytes += bh.size + sizeof(block_header);
+		i = bh.next_id;
+		numBlocks++;
+	}
+
+	fprintf(dest, "--> total allocated: %llu bytes  (%llu usable)\n\nFree Space:\n", totalBytes, totalBytes - (numBlocks * sizeof(block_header)));
+
+	totalBytes = 0;
+	numBlocks = 0;
+
+	i = d.free_block_id;
+	while(i != 0) {
+		readPartition(i, &bh, sizeof(block_header));
+		fprintf(dest, "offset %llu: %llu bytes  (%llu usable)\n", i, bh.size + sizeof(block_header), bh.size);
+		totalBytes += bh.size + sizeof(block_header);
+		i = bh.next_id;
+		numBlocks++;
+	}
+
+	fprintf(dest, "--> total free: %llu bytes  (%llu usable)\n\n", totalBytes, totalBytes - (numBlocks * sizeof(block_header)));
 }
 
 /**
@@ -304,19 +334,19 @@ block_id allocate_block(block_size_t request_size) {
 	}
 	
 	// find the FIRST block that FITs.
-	while(current.size < size && current.next_id != 0) {
+	while(current.next_id != 0 && (current.size + sizeof(block_header)) < size) {
 		currentPosition = current.next_id;
 		readPartition(currentPosition, &current, sizeof(block_header));
 	}
 
-	if(current.size < size) {
+	if((current.size + sizeof(block_header)) < size) {
 		// then we must not have found a block large enough.
 		fprintf(stderr, "Error: There are no free blocks large enough for a %llu byte request!\n", size);
 		_exit(1);
 	}
 
 	// now we have a usable free block
-	uint64_t oldSize = current.size;
+	uint64_t oldSize = current.size + sizeof(block_header);
 	block_id oldNext = current.next_id;
 	block_id oldPrev = current.previous_id;
 
@@ -329,6 +359,8 @@ block_id allocate_block(block_size_t request_size) {
 	if(oldSize - size >= 512) {
 		
 		// carve off a piece of this block for allocation.
+
+		current.size = request_size;
 
 		block_header newFree;
 		newFree.magic = FREE;
@@ -363,6 +395,8 @@ block_id allocate_block(block_size_t request_size) {
 
 		block_header temp;
 
+		current.size = oldSize;
+
 		// just note the next block in the partition directory
 		if(oldPrev == 0) {
 			dir->free_block_id = oldNext;
@@ -385,7 +419,6 @@ block_id allocate_block(block_size_t request_size) {
 	// find the right position.
 
 	current.magic = ALLOCATED;
-	current.size = request_size;
 	current.previous_id = 0;
 	current.next_id = 0;
 
@@ -409,24 +442,38 @@ block_id allocate_block(block_size_t request_size) {
 			readPartition(tempAllocPos, &tempAlloc, sizeof(block_header));
 		}
 
-		// stick this block after the current block.
-		
-		// new block comes after the block we found
-		block_id oldNext = tempAlloc.next_id;
-		tempAlloc.next_id = currentPosition;
-		writePartition(tempAllocPos, &tempAlloc, sizeof(block_header));
+		// this goes after the partition directory
+		if(tempAllocPos == dir->alloc_block_id) {
 
-		// and before that block's next block
-		if(oldNext != 0) {
-			readPartition(oldNext, &tempAlloc, sizeof(block_header));
-			tempAlloc.previous_id = currentPosition;
-			writePartition(oldNext, &tempAlloc, sizeof(block_header));
+			dir->alloc_block_id = currentPosition;
+			writePartition(0, dir, sizeof(directory));
+
+			current.previous_id = 0;
+			current.next_id = tempAllocPos;
+			writePartition(currentPosition, &current, sizeof(block_header));
+
+			tempAlloc.previous_id = currentPosition; // it had to be zero.
+			writePartition(tempAllocPos, &tempAlloc, sizeof(block_header));
+
+		} else {
+
+			// stick this block after the current block.
+			block_id oldNext = tempAlloc.next_id;
+			tempAlloc.next_id = currentPosition;
+			writePartition(tempAllocPos, &tempAlloc, sizeof(block_header));
+
+			// and before that block's next block
+			if(oldNext != 0) {
+				readPartition(oldNext, &tempAlloc, sizeof(block_header));
+				tempAlloc.previous_id = currentPosition;
+				writePartition(oldNext, &tempAlloc, sizeof(block_header));
+			}
+
+			// new block in the middle.
+			current.previous_id = tempAllocPos;
+			current.next_id = oldNext;
+			writePartition(currentPosition, &current, sizeof(block_header));
 		}
-
-		// new block in the middle.
-		current.previous_id = tempAllocPos;
-		current.next_id = oldNext;
-		writePartition(currentPosition, &current, sizeof(block_header));
 
 	}
 
@@ -451,8 +498,8 @@ block_id allocate_block(block_size_t request_size) {
  * Coalesces adjacent blocks.
  */
 void free_block(block_id blk) {
-	block_id left_id = look_left(blk);
-	block_id right_id = look_right(blk);
+	block_id left_id;
+	block_id right_id;
 	block_id newFree_id;
 
 	block_header leftHead, rightHead, currentHead;
@@ -464,6 +511,39 @@ void free_block(block_id blk) {
 		fprintf(stderr, "You're trying to free a block that is not allocated!\n");
 		_exit(31337);
 	}
+
+	// remove from allocated list
+
+	left_id = currentHead.previous_id;
+	right_id = currentHead.next_id;
+
+	if(left_id != 0) {
+		readPartition(left_id, &leftHead, sizeof(block_header));
+	}
+
+	if(right_id != 0) {
+		readPartition(right_id, &rightHead, sizeof(block_header));
+	}
+
+	if(left_id == 0) {
+		((directory*)partDir)->alloc_block_id = right_id;
+		writePartition(0, partDir, sizeof(directory));
+
+	} else {
+		leftHead.next_id = right_id;
+		writePartition(left_id, &leftHead, sizeof(block_header));
+	}
+
+	if(right_id != 0) {
+		// update right_id too
+		rightHead.previous_id = left_id;
+		writePartition(right_id, &rightHead, sizeof(block_header));
+	}
+
+
+	// add it to the free list.
+	left_id = look_left(blk);
+	right_id = look_right(blk);
 
 	newFree_id = blk;
 	newFree.magic = FREE;
