@@ -224,7 +224,7 @@ int do_chdir(char *name, char *size)
   {
   	//find the parent of the currentDirectory
   	block_id parentDirectory = currentDirectory.parent;
-  	initialize();
+  	load_block(parentDirectory, currentDirectory, numOfBytes);
   	currentDirectory = parentDirectory;
   	
   }
@@ -300,7 +300,7 @@ int do_mkfil(char *name, char *size)
   
   fileHeader fh;
   fh.isDirectory = false;
-  //fh.parent = currentDirectory.;
+  fh.parent = currentDirectory.currentID;
   fh.size = numOfBytes;
   fh.contents = blk + sizeof(fileHeader);
   fh.name = name;
@@ -340,6 +340,22 @@ int do_mvfil(char *name, char *size)
 int do_szfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+  
+  uint64_t numOfBytes = strtoull(size, NULL, 0);
+  
+  //need to find file!!!
+  
+  //file already exists
+  if()
+  {
+  	resize_block(currentDirectory.currentID, numOfBytes);
+  }
+  //file doesn't exist therefore can't resize
+  else
+  {
+  	fprintf(stderr, "File does not exist! :'(");
+  }
+  
   return -1;
 }
 
