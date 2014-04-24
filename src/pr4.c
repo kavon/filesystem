@@ -66,15 +66,16 @@ struct action {
     { NULL, NULL }	// end marker, do not remove
 };
 
-struct fileHeader
+typedef struct fileHeader
 {
 	bool isDirectory;
-	struct fileHeader *parent;
+	block_id parent;
 	unsigned int size;
-	void * contents;
-};
+	block_id contents;
+  char name[128];
+} fileHeader;
 
-struct fileHeader *currentDirectory;
+fileHeader *currentDirectory;
 
 /*--------------------------------------------------------------------------------*/
 
