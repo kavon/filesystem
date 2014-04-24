@@ -84,21 +84,52 @@ void parse(char *buf, int *argc, char *argv[]);
 
 /*--------------------------------------------------------------------------------*/
 
-int main(int argc, char *argv[])
-{
+void testPartition() {
   // TESTING, REMOVE LATER
   initialize("./partition.data", 16384);
-  block_id one = allocate_block(0x1A);
-  block_id two = allocate_block(0xBC);
-  block_id three = allocate_block(0x77);
+  /*
 
-  //fprintf(stderr, "%llu <- %s (%llu) -> %llu\n", look_left(one), "one", one, look_right(one));
-  //fprintf(stderr, "%llu <- %s (%llu) -> %llu\n", look_left(two), "two", two, look_right(two));
-  //fprintf(stderr, "%llu <- %s (%llu) -> %llu\n", look_left(three), "three", three, look_right(three));
+  block_id one = allocate_block(123);
+  block_id two = allocate_block(45);
+  block_id three = allocate_block(67);
+
+  free_block(two);
+
+  printInfo(stderr);
+
+  resize_block(one, 900);
+
+  printInfo(stderr);
+
+  two = allocate_block(10);
+
+  printInfo(stderr);
+  */
+
+  
+
+  block_id one = allocate_block(123);
+  block_id two = allocate_block(45);
+
+  printInfo(stderr);
+
+  free_block(two);
+
+  printInfo(stderr);
+
+  free_block(one);
+
+  printInfo(stderr);
+
 
   // END OF TESTING
+}
 
+int main(int argc, char *argv[])
+{
 
+  testPartition();
+  
   char in[LINESIZE];
   char *cmd, *fnm, *fsz;
   char dummy[] = "";

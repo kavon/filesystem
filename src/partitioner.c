@@ -150,15 +150,16 @@ block_id look_left(block_id blk) {
  *
  */
 int initialize(char* filename, uint64_t numBytes) {
-	bool fileAlreadyExists = (access(filename, F_OK ) != -1);
-	part = fopen(filename, "w+"); // open for read/write, at beginning
+	if(access(filename, F_OK ) != -1) {
+		// file already exists
 
-	if(part == NULL) {
-		fprintf(stderr, "Unable to open file!\n");
-		return 2;
-	}
+		part = fopen(filename, "rb+");
 
-	if(fileAlreadyExists) {
+		if(part == NULL) {
+			fprintf(stderr, "Unable to open file!\n");
+			_exit(2);
+		}
+
 		// need to know how big the partition directory is
 		uint64_t size;
 		readPartition(0, &size, 8);
@@ -172,6 +173,12 @@ int initialize(char* filename, uint64_t numBytes) {
 		readPartition(0, partDir, size);
 
 	} else {
+		part = fopen(filename, "w+"); // open for read/write, at beginning
+
+		if(part == NULL) {
+			fprintf(stderr, "Unable to open file!\n");
+			_exit(2);
+		}
 
 		// we need to initialize a partition directory and write it out to the file.
 		uint64_t numSectors = (numBytes / SECTOR_SIZE);
@@ -441,6 +448,8 @@ block_id allocate_block(block_size_t request_size) {
 			tempAllocPos = tempAlloc.next_id;
 			readPartition(tempAllocPos, &tempAlloc, sizeof(block_header));
 		}
+
+		// BUG HERE, fix after some sleep, places blocks out of order. jsut refactor.
 
 		// this goes after the partition directory
 		if(tempAllocPos == dir->alloc_block_id) {
