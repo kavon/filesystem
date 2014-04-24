@@ -74,6 +74,8 @@ struct fileHeader
 	void * contents;
 };
 
+struct fileHeader *currentDirectory;
+
 /*--------------------------------------------------------------------------------*/
 
 void parse(char *buf, int *argc, char *argv[]);
@@ -164,6 +166,9 @@ int do_root(char *name, char *size)
   
   saveRootID(blk);
   
+  //set root directory to be current directory
+  currentDirectory = fh;
+  
   return -1;
 }
 
@@ -182,9 +187,10 @@ int do_chdir(char *name, char *size)
   //move up one level
   if(name == '..')
   {
-  	//find what we are currently pointed to
-  	//find the parent of that
-  	//initialize(parent, numOfBytes??);
+  	//find the parent of the currentDirectory
+  	char* parentName = currentDirectory.parent;
+  	
+  	//initialize(parentName, numOfBytes??);
   	
   }
   
@@ -209,7 +215,7 @@ int do_mkdir(char *name, char *size)
   
   fileHeader fh;
   fh.isDirectory = true;
-  //fh.parent = ;
+  fh.parent = currentDirectory;
   fh.size = numOfBytes;
   fh.contents = blk + sizeof(fileHeader);
   
@@ -221,6 +227,7 @@ int do_mkdir(char *name, char *size)
   free(buf);
   
   //notify parent of block id
+  //currentDirectory.contents
   
   return -1;
 }
