@@ -5,22 +5,17 @@ static FILE *part;
 
 // in-memory version of the partition directory
 static void* partDir;
-static uint64_t partDir_size;
 
-// 4kb sectors
-const uint64_t SECTOR_SIZE = 4096;
 
 // little endian machines flip these Magic values.
 const uint64_t ALLOCATED =  0xEDA70C110A;
 const uint64_t FREE = 0xEEF4EEF4;
 
 typedef struct directory {
-	uint64_t size; // everything, including bitmap stuff.
 	block_id alloc_block_id;
 	block_id free_block_id;
 	block_id root_dir_id;
-	uint64_t num_sectors;
-	uint64_t sector_size;
+	block_size_t partition_size;
 } directory;
 
 typedef struct block_header {
@@ -92,7 +87,7 @@ block_id look_right(block_id blknum) {
 	readPartition(blknum, &bh, sizeof(block_header));
 
 	uint64_t next = blknum + sizeof(block_header) + bh.size;
-	if(next >= partDir_size + (((directory*)partDir)->num_sectors * ((directory*)partDir)->sector_size)) {
+	if(next >= sizeof(directory) + ((directory*)partDir)->partition_size) {
 		// this is the last block in the filesystem.
 		return 0;
 	}
@@ -103,7 +98,7 @@ block_id look_right(block_id blknum) {
 // we identify the block physically adjacent s.t. it precedes the specified block
 block_id look_left(block_id blk) {
 	// the very first possible block.
-	uint64_t currentBlk = partDir_size;
+	uint64_t currentBlk = sizeof(directory);
 
 	if(blk == 0) {
 		fprintf(stderr, "ERROR: shouldn't be asking for a block left of the partition descriptor!\n");
@@ -160,17 +155,10 @@ int initialize(char* filename, uint64_t numBytes) {
 			_exit(2);
 		}
 
-		// need to know how big the partition directory is
-		uint64_t size;
-		readPartition(0, &size, 8);
-		// TODO: error check
-
-		partDir_size = size;
-
 		// make space for it in memory
-		partDir = malloc(partDir_size);
+		partDir = malloc(sizeof(directory));
 		// copy directory to memory.
-		readPartition(0, partDir, size);
+		readPartition(0, partDir, sizeof(directory));
 
 	} else {
 		part = fopen(filename, "w+"); // open for read/write, at beginning
@@ -180,47 +168,32 @@ int initialize(char* filename, uint64_t numBytes) {
 			_exit(2);
 		}
 
-		// we need to initialize a partition directory and write it out to the file.
-		uint64_t numSectors = (numBytes / SECTOR_SIZE);
-		if(numBytes % SECTOR_SIZE != 0) {
-			numSectors += 1;
-		}
-
-		uint64_t size = sizeof(directory) + ((numSectors / 8) + 1) + 8;
-		partDir_size = size;
-		partDir = calloc(1, size);
+		partDir = calloc(1, sizeof(directory));
 		directory *dirPtr = (directory*)partDir;
 
-		dirPtr->size = size;
-		dirPtr->num_sectors = numSectors;
-		dirPtr->sector_size = SECTOR_SIZE;
+		dirPtr->free_block_id = sizeof(directory); // we know the id's are just byte offsets, this is the first block.
+		dirPtr->partition_size = numBytes;
+		writePartition(0, dirPtr, sizeof(directory));
 
-		void *bitmap = (((uint8_t*)partDir) + sizeof(directory));
-		createBitmap(numSectors, bitmap, size - sizeof(directory));
-
-		dirPtr->free_block_id = size; // we know the id's are just byte offsets, this is the first block.
 
 		block_header newBlock;
-		newBlock.size = (numSectors * SECTOR_SIZE) - sizeof(block_header);
+		newBlock.size = numBytes;
 		newBlock.magic = FREE;
 		newBlock.previous_id = 0;
 		newBlock.next_id = 0;
 
-		writePartition(0, dirPtr, size);
-
 		// now we need to fill the file in with enough space for the sectors to
 		// have it simulate being a hard drive.
-		uint8_t *zeroed_sector = calloc(1, SECTOR_SIZE);
+		uint8_t zeroed_sector = 0;
 
-		fseek(part, size, SEEK_SET); // start at the end of the partition directory.
-		for(unsigned long i = 0; i < numSectors; i++) {			
-			if(fwrite(zeroed_sector, SECTOR_SIZE, 1, part) != 1) {
+		fseek(part, sizeof(directory), SEEK_SET); // start at the end of the partition directory.		
+		for(block_size_t i = 0; i < numBytes; i++) {
+			if(fwrite(&zeroed_sector, 1, 1, part) != 1) {
 				fprintf(stderr, "Unable to completely allocate the partition!!\n");
 				return 1;
 			}
 		}
 		rewind(part);
-		free(zeroed_sector);
 
 		// now we need to initialize the initial free block
 		writePartition(dirPtr->free_block_id, &newBlock, sizeof(block_header));
@@ -259,13 +232,13 @@ void printInfo(FILE *dest) {
 	i = d.free_block_id;
 	while(i != 0) {
 		readPartition(i, &bh, sizeof(block_header));
-		fprintf(dest, "offset %llu: %llu bytes  (%llu usable)\n", i, bh.size + sizeof(block_header), bh.size);
-		totalBytes += bh.size + sizeof(block_header);
+		fprintf(dest, "offset %llu: %llu bytes\n", i, bh.size);
+		totalBytes += bh.size;
 		i = bh.next_id;
 		numBlocks++;
 	}
 
-	fprintf(dest, "--> total free: %llu bytes  (%llu usable)\n\n", totalBytes, totalBytes - (numBlocks * sizeof(block_header)));
+	fprintf(dest, "--> total free: %llu bytes\n\n", totalBytes);
 }
 
 /**
@@ -341,19 +314,19 @@ block_id allocate_block(block_size_t request_size) {
 	}
 	
 	// find the FIRST block that FITs.
-	while(current.next_id != 0 && (current.size + sizeof(block_header)) < size) {
+	while(current.next_id != 0 && current.size < size) {
 		currentPosition = current.next_id;
 		readPartition(currentPosition, &current, sizeof(block_header));
 	}
 
-	if((current.size + sizeof(block_header)) < size) {
+	if(current.size < size) {
 		// then we must not have found a block large enough.
 		fprintf(stderr, "Error: There are no free blocks large enough for a %llu byte request!\n", size);
 		_exit(1);
 	}
 
 	// now we have a usable free block
-	uint64_t oldSize = current.size + sizeof(block_header);
+	block_size_t oldSize = current.size;
 	block_id oldNext = current.next_id;
 	block_id oldPrev = current.previous_id;
 
@@ -402,7 +375,7 @@ block_id allocate_block(block_size_t request_size) {
 
 		block_header temp;
 
-		current.size = oldSize;
+		current.size = oldSize - sizeof(block_header);
 
 		// just note the next block in the partition directory
 		if(oldPrev == 0) {
@@ -422,80 +395,30 @@ block_id allocate_block(block_size_t request_size) {
 	}
 
 	// now that free list is fixed, we need to add this newly allocated block
-	// to the allocated list. we keep these lists sorted by block id, so we must
-	// find the right position.
+	// to the allocated list. there's no actual reason why the allocated
+	// list needs to be sorted by id, it only matters for the free list in order
+	// to support a simpler block coalescing system.
 
 	current.magic = ALLOCATED;
 	current.previous_id = 0;
 	current.next_id = 0;
 
+	if(dir->alloc_block_id != 0) {
+		uint64_t currentFirstPos = dir->alloc_block_id;
+		block_header currentFirst;
 
-	if(dir->alloc_block_id == 0) {
-		// Nothing's allocated, just place this block id here.
-		dir->alloc_block_id = currentPosition;
-		writePartition(0, dir, sizeof(directory));
+		readPartition(currentFirstPos, &currentFirst, sizeof(block_header));
+		currentFirst.previous_id = currentPosition;
+		writePartition(currentFirstPos, &currentFirst, sizeof(block_header));
 
-		// and save the new header.
-		writePartition(currentPosition, &current, sizeof(block_header));
-
-	} else {
-		// find the appropriate place.
-		uint64_t tempAllocPos = dir->alloc_block_id;
-		block_header tempAlloc;
-
-		readPartition(tempAllocPos, &tempAlloc, sizeof(block_header));
-		while(tempAlloc.next_id != 0 && tempAlloc.next_id < currentPosition) {
-			tempAllocPos = tempAlloc.next_id;
-			readPartition(tempAllocPos, &tempAlloc, sizeof(block_header));
-		}
-
-		// BUG HERE, fix after some sleep, places blocks out of order. jsut refactor.
-
-		// this goes after the partition directory
-		if(tempAllocPos == dir->alloc_block_id) {
-
-			dir->alloc_block_id = currentPosition;
-			writePartition(0, dir, sizeof(directory));
-
-			current.previous_id = 0;
-			current.next_id = tempAllocPos;
-			writePartition(currentPosition, &current, sizeof(block_header));
-
-			tempAlloc.previous_id = currentPosition; // it had to be zero.
-			writePartition(tempAllocPos, &tempAlloc, sizeof(block_header));
-
-		} else {
-
-			// stick this block after the current block.
-			block_id oldNext = tempAlloc.next_id;
-			tempAlloc.next_id = currentPosition;
-			writePartition(tempAllocPos, &tempAlloc, sizeof(block_header));
-
-			// and before that block's next block
-			if(oldNext != 0) {
-				readPartition(oldNext, &tempAlloc, sizeof(block_header));
-				tempAlloc.previous_id = currentPosition;
-				writePartition(oldNext, &tempAlloc, sizeof(block_header));
-			}
-
-			// new block in the middle.
-			current.previous_id = tempAllocPos;
-			current.next_id = oldNext;
-			writePartition(currentPosition, &current, sizeof(block_header));
-		}
-
+		current.next_id = currentFirstPos;
 	}
 
-	/*
-	// finally, we need to mark off the newly used sectors in the bitmap.
-	uint64_t startSector = (currentPosition - partDir_size) / SECTOR_SIZE;
-	uint64_t endSector = ((currentPosition - partDir_size) + current.size - 1) / SECTOR_SIZE;
-	void *bitmap = ((uint8_t*)partDir) + partDir_size;
-	for(uint64_t i = startSector; i < endSector; i++) {
-		setBit(i, bitmap);
-	}
-	// write partDir to disk.
-	*/
+	dir->alloc_block_id = currentPosition;
+	writePartition(0, dir, sizeof(directory));
+
+	// and save the new header.
+	writePartition(currentPosition, &current, sizeof(block_header));
 
 	return currentPosition;
 
@@ -556,7 +479,7 @@ void free_block(block_id blk) {
 
 	newFree_id = blk;
 	newFree.magic = FREE;
-	newFree.size = currentHead.size;
+	newFree.size = currentHead.size + sizeof(block_header); // allocated blocks don't include header in its field
 
 	if(left_id != 0) {
 		readPartition(left_id, &leftHead, sizeof(block_header));
@@ -566,6 +489,8 @@ void free_block(block_id blk) {
 		readPartition(right_id, &rightHead, sizeof(block_header));
 	}
 
+	fprintf(stderr, "Looking around, I see: %llu (free? %i) <- %llu -> %llu (free? %i)\n", left_id, leftHead.magic == FREE, blk, right_id, rightHead.magic == FREE);
+
 	// yeah... the below logic could be optimized, but it's 4am
 
 	// ADJUST SIZE OF NEW FREE BLOCK
@@ -573,12 +498,12 @@ void free_block(block_id blk) {
 		// we can extend left!
 		newFree_id = left_id;
 		// we add the _entire_ left block, we already account for header space from our old size.
-		newFree.size += leftHead.size + sizeof(block_header);
+		newFree.size += leftHead.size;
 	}
 
 	if(rightHead.magic == FREE) {
 		// aww yiss, we can extend right 
-		newFree.size += rightHead.size + sizeof(block_header);
+		newFree.size += rightHead.size;
 	}
 
 	
@@ -586,19 +511,30 @@ void free_block(block_id blk) {
 	// adjust the pointers very simply:
 	if(leftHead.magic == FREE && rightHead.magic == FREE) {
 		// hit the jackpot here... this block is between two free blocks.
-		
-		newFree.previous_id = leftHead.previous_id;
-		newFree.next_id = rightHead.next_id;
+		// we can just update the left one, and remove the right one.
+
+		leftHead.size = newFree.size;
+		leftHead.next_id = rightHead.next_id;
+		writePartition(left_id, &leftHead, sizeof(block_header));
 
 	} else if(leftHead.magic == FREE) {
+		// just extend the left block
 
-		newFree.previous_id = leftHead.previous_id;
-		newFree.next_id = leftHead.next_id;
+		leftHead.size = newFree.size;
+		writePartition(left_id, &leftHead, sizeof(block_header));
 
 	} else if(rightHead.magic == FREE) {
+		// remove the right block, and and make this one bigger
 
 		newFree.previous_id = rightHead.previous_id;
 		newFree.next_id = rightHead.next_id;
+
+		if(newFree.previous_id == 0) {
+			((directory*)partDir)->free_block_id = newFree_id;
+			writePartition(0, partDir, sizeof(directory));
+		}
+
+		writePartition(newFree_id, &newFree, sizeof(block_header));
 
 	} else {
 		// we're surrounded by allocated blocks, so we must traverse the
@@ -654,12 +590,13 @@ void free_block(block_id blk) {
 				writePartition(newFree.next_id, &rightHead, sizeof(block_header));
 			}
 		}
+
+		writePartition(newFree_id, &newFree, sizeof(block_header));
+
 	}
 
 	// and finally, after adjustments have been made, we write the block.
-	writePartition(newFree_id, &newFree, sizeof(block_header));
-
-	//TODO: UPDATE THE BITMAP
+	
 }
 
 /**

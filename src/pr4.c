@@ -106,7 +106,8 @@ void testPartition() {
   printInfo(stderr);
   */
 
-  
+  printInfo(stderr);  
+
 
   block_id one = allocate_block(123);
   block_id two = allocate_block(45);

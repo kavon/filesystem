@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#include "bitmap.h"
+#include <stdlib.h>
 
 typedef uint64_t block_id;
 typedef uint64_t block_size_t;
