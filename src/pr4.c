@@ -263,6 +263,16 @@ int do_mkdir(char *name, char *size)
 int do_rmdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+  
+  /*
+  // check if it's the root, if root don't remove
+  //if (getRootID() ==)
+  
+  // need to deallocate the data that is pointed to
+  fprintf(stderr, "%s: %s: removing directory...\n", __func__, name);
+  // free_block();
+  */
+  
   return -1;
 }
 
@@ -299,6 +309,16 @@ int do_mkfil(char *name, char *size)
 int do_rmfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+  
+  /*
+  // need to check if whatever is given is actually a file
+  
+  // need to deallocate the data that is pointed to
+  fprintf(stderr, "%s: %s: removing file...\n", __func__, name);
+  // free_block();
+  
+  */
+  
   return -1;
 }
 
