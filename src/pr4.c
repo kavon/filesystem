@@ -147,8 +147,6 @@ int do_root(char *name, char *size)
   
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
-  //initialize(name, numOfBytes);
-  
   block_id blk = allocate_block(1024 + sizeof(fileHeader));
   
   fileHeader fh;
@@ -192,13 +190,12 @@ int do_chdir(char *name, char *size)
   	char* parentSize = currentDirectory.parent.size;
   	uint64_t parentNumOfBytes = strtoull(parentSize, NULL, 0);
   	
-  	//initialize(parentDirectory, parentNumOfBytes);
   	
   }
   //move down one level to specified directory
   else
   {
-  	//initialize(name, numOfBytes);
+  
   }
   
   return -1;
@@ -209,8 +206,6 @@ int do_mkdir(char *name, char *size)
   if (debug) printf("%s\n", __func__);
   
   uint64_t numOfBytes = strtoull(size, NULL, 0);
-  
-  //initialize(name, numOfBytes);
   
   block_id blk = allocate_block(1024 + sizeof(fileHeader));
   
@@ -252,8 +247,6 @@ int do_mkfil(char *name, char *size)
   if (debug) printf("%s\n", __func__);
   
   uint64_t numOfBytes = strtoull(size, NULL, 0);
-  
-  //initialize(name, numOfBytes);
   
   block_id blk = allocate_block(1024 + sizeof(fileHeader));
   
