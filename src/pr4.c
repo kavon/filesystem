@@ -73,6 +73,7 @@ typedef struct fileHeader
 	unsigned int size;
 	block_id contents;
   	char name[128];
+  	block_id currentID;
 } fileHeader;
 
 fileHeader *currentDirectory;
@@ -169,7 +170,7 @@ int main(int argc, char *argv[])
 int do_root(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  /*
+
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   if(name == NULL)
@@ -202,7 +203,7 @@ int do_root(char *name, char *size)
   
   //set root directory to be current directory
   currentDirectory = fh;
-  */
+
   return -1;
 }
 
@@ -223,13 +224,14 @@ int do_chdir(char *name, char *size)
   {
   	//find the parent of the currentDirectory
   	block_id parentDirectory = currentDirectory.parent;
-  	//currentDirectory = parentDirectory;
+  	initialize();
+  	currentDirectory = parentDirectory;
   	
   }
   //move down one level to specified directory
   else
   {
-  	//fileHeader childDirectory = currentDirectory.contents
+  	//block_id childDirectory = currentDirectory.contents
   	//currentDirectory = childDirectory;
   }
   */
@@ -239,18 +241,19 @@ int do_chdir(char *name, char *size)
 int do_mkdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  /*
+  
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
-  block_id blk = allocate_block(1024 + sizeof(fileHeader));
+  block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
   
   fileHeader fh;
   fh.isDirectory = true;
   fh.parent = currentDirectory;
   fh.size = numOfBytes;
   fh.contents = blk + sizeof(fileHeader);
+  fh.name = name;
   
-  int buf = malloc(1024);
+  int buf = malloc(numOfBytes);
   
   save_block(fh.contents, buf, fh.size);
   
@@ -261,7 +264,7 @@ int do_mkdir(char *name, char *size)
   //currentDirectory.contents
   
   currentDirectory = fh;
-  */
+
   return -1;
 }
 
@@ -290,24 +293,25 @@ int do_mvdir(char *name, char *size)
 int do_mkfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  /*
+  
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
-  block_id blk = allocate_block(1024 + sizeof(fileHeader));
+  block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
   
   fileHeader fh;
   fh.isDirectory = false;
   //fh.parent = currentDirectory.;
   fh.size = numOfBytes;
   fh.contents = blk + sizeof(fileHeader);
+  fh.name = name;
   
-  int buf = malloc(1024);
+  int buf = malloc(numOfBytes);
   
   save_block(fh.contents, buf, fh.size);
   
   //Don't need that buffer anymore, we saved to disk
   free(buf);
-  */
+
   return -1;
 }
 
