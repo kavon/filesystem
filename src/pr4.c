@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 int do_root(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
+  /*
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   block_id blk = allocate_block(1024 + sizeof(fileHeader));
@@ -166,7 +166,7 @@ int do_root(char *name, char *size)
   
   //set root directory to be current directory
   currentDirectory = fh;
-  
+  */
   return -1;
 }
 
@@ -179,7 +179,7 @@ int do_print(char *name, char *size)
 int do_chdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
+  /*
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   //move up one level
@@ -196,14 +196,14 @@ int do_chdir(char *name, char *size)
   	//fileHeader childDirectory = currentDirectory.contents
   	//currentDirectory = childDirectory;
   }
-  
+  */
   return -1;
 }
 
 int do_mkdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
+  /*
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   block_id blk = allocate_block(1024 + sizeof(fileHeader));
@@ -225,7 +225,7 @@ int do_mkdir(char *name, char *size)
   //currentDirectory.contents
   
   currentDirectory = fh;
-  
+  */
   return -1;
 }
 
@@ -244,7 +244,7 @@ int do_mvdir(char *name, char *size)
 int do_mkfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
+  /*
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   block_id blk = allocate_block(1024 + sizeof(fileHeader));
@@ -261,7 +261,7 @@ int do_mkfil(char *name, char *size)
   
   //Don't need that buffer anymore, we saved to disk
   free(buf);
-  
+  */
   return -1;
 }
 
