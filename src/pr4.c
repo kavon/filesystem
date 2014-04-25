@@ -72,8 +72,8 @@ bool isDirectory;
 block_id parent;
 unsigned int size;
 block_id contents;
-   char* name[128];
-   block_id currentID;
+char* name[128];
+block_id currentID;
 } fileHeader;
 
 fileHeader *currentDirectory;
@@ -228,10 +228,17 @@ int do_chdir(char *name, char *size)
   //move up one level
   if(name == '..')
   {
-   //find the parent of the currentDirectory
-   block_id parentDirectory = currentDirectory->parent;
-   load_block(parentDirectory, currentDirectory, numOfBytes);
-   currentDirectory = parentDirectory;
+    if(currentDirectory.currentID == getRootID())
+    {
+      printf("Already in root directory");
+    }
+    else
+    {
+      //find the parent of the currentDirectory
+      block_id parentDirectory = currentDirectory->parent;
+      load_block(parentDirectory, currentDirectory, numOfBytes);
+      currentDirectory = parentDirectory;
+    }
   
   }
   //move down one level to specified directory
