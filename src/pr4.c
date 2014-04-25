@@ -8,8 +8,6 @@
 
 #include "partitioner.h"
 
-#define DIRECTORYSIZE 1024
-
 /*--------------------------------------------------------------------------------*/
 
 int debug = 0;	// extra output; 1 = on, 0 = off
@@ -73,7 +71,7 @@ typedef struct fileHeader
 bool isDirectory;
 block_id parent;
 unsigned int size;
-block_id contents[DIRECTORYSIZE];
+block_id contents;
 char* name[128];
 block_id currentID;
 } fileHeader;
@@ -246,8 +244,10 @@ int do_chdir(char *name, char *size)
   //move down one level to specified directory
   else
   {
-   //block_id childDirectory = currentDirectory.contents
-   //currentDirectory = childDirectory;
+    load_block(currentDirectory, currentDirectory, numOfBytes);
+    
+    //block_id childDirectory = currentDirectory.contents
+    currentDirectory = childDirectory;
   }
 
   return -1;
