@@ -281,7 +281,7 @@ int do_rmdir(char *name, char *size)
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   // directory is the current directory
-  if(fh.parent == currentDirectory)
+  if(name == currentDirectory->name)
   {
    // get the block_id from the directory file
    block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
@@ -322,7 +322,7 @@ int do_mkfil(char *name, char *size)
   
   int buf = malloc(numOfBytes);
   
-  save_block(fh.contents, buf, fh.size);
+  save_block(fh->contents, buf, fh->size);
   
   //Don't need that buffer anymore, we saved to disk
   free(buf);
@@ -337,7 +337,7 @@ int do_rmfil(char *name, char *size)
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   // check that the file is in the current directory
-  if(fh.parent == currentDirectory)
+  if(/*name == currentDirectory.contents*/)
   {
    // get the block_id from the directory file
    block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
@@ -372,7 +372,7 @@ int do_szfil(char *name, char *size)
   //file already exists
   if()
   {
-   resize_block(currentDirectory.currentID, numOfBytes);
+   resize_block(currentDirectory->currentID, numOfBytes);
   }
   //file doesn't exist therefore can't resize
   else
