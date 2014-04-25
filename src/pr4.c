@@ -244,9 +244,9 @@ int do_chdir(char *name, char *size)
   //move down one level to specified directory
   else
   {
-    load_block((currentDirectory->currentID)+sizeof(fileHeader), currentDirectory, numOfBytes);
-    block_id childDirectory = (currentDirectory->currentID) + sizeof(fileHeader);
-    currentDirectory = childDirectory;
+    load_block(, currentDirectory, numOfBytes);
+    //block_id childDirectory = 
+    //currentDirectory = childDirectory;
   }
 
   return -1;
@@ -376,18 +376,7 @@ int do_szfil(char *name, char *size)
   
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
-  //need to find file!!!
-  
-  //file already exists
-  if()
-  {
-   resize_block(currentDirectory->currentID, numOfBytes);
-  }
-  //file doesn't exist therefore can't resize
-  else
-  {
-   fprintf(stderr, "File does not exist! :'(");
-  }
+  //resize_block(currentDirectory->currentID, numOfBytes);
   
   return -1;
 }
