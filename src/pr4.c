@@ -261,7 +261,7 @@ int do_mkdir(char *name, char *size)
   
   int buf = malloc(numOfBytes);
   
-  save_block(fh.contents, buf, fh.size);
+  save_block(fh->contents, buf, fh->size);
   
   //Don't need that buffer anymore, we saved to disk
   free(buf);
