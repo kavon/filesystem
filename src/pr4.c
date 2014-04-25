@@ -277,8 +277,20 @@ int do_rmdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
   
-
+  uint64_t numOfBytes = strtoull(size, NULL, 0);
   
+  // directory is the current directory
+  if(fh.parent == currentDirectory)
+  {
+  	// get the block_id from the directory file
+  	block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
+  	free_block(blk);
+  }
+  else
+  {
+  	fprintf(stderr, "File does not exist in this directory!\n");	
+  }
+
   return -1;
 }
 
