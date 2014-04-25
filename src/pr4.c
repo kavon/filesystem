@@ -288,7 +288,7 @@ int do_rmdir(char *name, char *size)
   }
   else
   {
-  	fprintf(stderr, "File does not exist in this directory!\n");	
+  	fprintf(stderr, "Directory is not able to be removed!\n");	
   }
 
   return -1;
