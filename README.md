@@ -1,7 +1,9 @@
 filesystem
 ==========
 
-#### Partition Structure
+A short group project for an Operating Systems course.
+
+### Partition Structure
 
 The partitioning code was designed such that it would be quick to implement and easy to verify correctness, rather than efficiency. This might change in the future.
 
@@ -25,8 +27,8 @@ The requests for space in the partition are carried out with a traditional dynam
 
 Offset | Type | Description
 --- | --- | ---
-0 | `uint64_t` | `0xEDA70C110A` if the block is allocated, `0xEEF4EEF4` otherwise.
-8 | `uint64_t` | size of this block
+0 | `uint64_t` | `0xEDA70C110A` if the block is allocated, `0xEEF4EEF4` if free.
+8 | `uint64_t` | size of this block. does not include header if allocated, but does if free
 16 | `uint64_t` | previous block id, 0 if nothing precedes it.
 24 | `uint64_t` | next block id, 0 if nothing follows.
 
