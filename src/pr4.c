@@ -244,9 +244,8 @@ int do_chdir(char *name, char *size)
   //move down one level to specified directory
   else
   {
-    load_block(currentDirectory, currentDirectory, numOfBytes);
-    
-    //block_id childDirectory = currentDirectory.contents
+    load_block((currentDirectory->currentID)+sizeof(fileHeader), currentDirectory, numOfBytes);
+    block_id childDirectory = (currentDirectory->currentID) + sizeof(fileHeader);
     currentDirectory = childDirectory;
   }
 
@@ -276,7 +275,8 @@ int do_mkdir(char *name, char *size)
   free(buf);
   
   //notify parent of block id
-  //currentDirectory.contents
+  resize_block(currentDirectory->currentID, currentDirectory->size + numOfBytes + sizeof(fileHeader));
+  currentDirectory->size += (numOfBytes + sizeof(fileHeader));
   
   currentDirectory = fh;
 
