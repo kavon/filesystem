@@ -544,59 +544,58 @@ void free_block(block_id blk) {
 		block_id guy = ((directory*)partDir)->free_block_id;
 		readPartition(guy, &guyInfo, sizeof(block_header));
 
+		newFree.previous_id = 0;
+		newFree.next_id = 0;
+
 		if(guy == 0) {
 			// there are no free blocks, you're the first and only one.
-			newFree.previous_id = 0;
-			newFree.next_id = 0;
+
+			((directory*)partDir)->free_block_id = newFree_id;
+			writePartition(0, partDir, sizeof(directory));
 
 		} else {
 
-			while(guyInfo.next_id != 0 && guyInfo.next_id < newFree_id) {
+			while(guy < newFree_id && guyInfo.next_id != 0) {
 				guy = guyInfo.next_id;
 				readPartition(guy, &guyInfo, sizeof(block_header));
 			}
 
+			if(guy < newFree_id) {
+				// we go _after_ guy
+				guyInfo.next_id = newFree_id;
+				newFree.previous_id = guy;
 
-			if(guyInfo.previous_id == 0) {
-				// you're about to become the new first free block.
-				newFree.previous_id = 0;
-				newFree.next_id = guy;
-
-				((directory*)partDir)->free_block_id = newFree_id;
-				writePartition(0, partDir, sizeof(directory));
-				
-				guyInfo.previous_id = newFree_id;
 				writePartition(guy, &guyInfo, sizeof(block_header));
-				
 
 			} else {
+				// we go _before_ guy
 
-				readPartition(guyInfo.next_id, &rightHead, sizeof(block_header));
-				// the "left" is guy/guyInfo in this case.
+				// need to let the block before guy know who's really next
+				if(guyInfo.previous_id == 0) {
+					// we're about to become the first free block.
+					((directory*)partDir)->free_block_id = newFree_id;
+					writePartition(0, partDir, sizeof(directory));
+				} else {
+					// this is a block we need to update.
 
-				// fix left
-				block_id oldNext = guyInfo.next_id;
-				guyInfo.next_id = newFree_id;
+					readPartition(guyInfo.previous_id, &leftHead, sizeof(block_header));
+					leftHead.next_id = newFree_id;
+					writePartition(guyInfo.previous_id, &leftHead, sizeof(block_header));
+				}
 
-				// fix right
-				block_id oldPrev = rightHead.previous_id;
-				rightHead.previous_id = newFree_id;
+				newFree.previous_id = guyInfo.previous_id;
+				newFree.next_id = guy;
 
-				//fix new middle guy
-				newFree.next_id = oldNext;
-				newFree.previous_id = oldPrev;
-
-				writePartition(newFree.previous_id, &guyInfo, sizeof(block_header));
-				writePartition(newFree.next_id, &rightHead, sizeof(block_header));
+				// update guy itself
+				guyInfo.previous_id = newFree_id;
+				writePartition(guy, &guyInfo, sizeof(block_header));
 			}
 		}
 
+		// gotta update newFree in all cases.
 		writePartition(newFree_id, &newFree, sizeof(block_header));
 
-	}
-
-	// and finally, after adjustments have been made, we write the block.
-	
+	}	
 }
 
 /**

@@ -88,29 +88,34 @@ void parse(char *buf, int *argc, char *argv[]);
 
 void testPartition() {
   // TESTING, REMOVE LATER
-  // 40 MB
-  initialize("./partition.data", 31337);
+  initialize("./partition.data", 2000000);
   
   srand(time(NULL));
 
-  block_id blk[50];
+  const uint64_t num = 1973;
 
-  for(int i = 0; i < 50; i++) {
-    blk[i] = allocate_block(500);
+  block_id blk[num];
+
+  for(int i = 0; i < num; i++) {
+    blk[i] = allocate_block((rand() % 500) + 1);
   }
 
-  printInfo(stderr);
-
-  for(int i = 0; i < 100; i++) {
-    block_id one = rand() % 50;
-    block_id two = rand() % 50;
+  for(int i = 0; i < num * 4; i++) {
+    block_id one = rand() % num;
+    block_id two = rand() % num;
 
     block_id temp = one;
     one = two;
     two = temp;
   }
 
-  for(int i = 0; i < 50; i++) {
+  for(int i = 0; i < num/2; i++) {
+    blk[i] = resize_block(blk[i], (rand() % 1024) + 1);
+  }
+
+  printInfo(stderr);
+
+  for(int i = 0; i < num; i++) {
     free_block(blk[i]);
   }
 
