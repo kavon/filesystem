@@ -226,7 +226,7 @@ int do_chdir(char *name, char *size)
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   //move up one level
-  if(name == '..')
+  if(strcmp(name, "..") == 0)
   {
     if(currentDirectory.currentID == getRootID())
     {
