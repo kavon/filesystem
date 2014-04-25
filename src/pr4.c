@@ -177,25 +177,26 @@ int do_root(char *name, char *size)
   if (debug) printf("%s\n", __func__);
 
   uint64_t numOfBytes = strtoull(size, NULL, 0);
+  fileHeader fh;
   
   if(name == NULL)
   {
   	initialize("./partition.data", 16384);
   	numOfBytes = 16384
+  	fh.name = "partition.data";
   }
   else
   {
   	initialize(name, numOfBytes);
+  	fh.name = name;
   }
   
   block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
   
-  fileHeader fh;
   fh.isDirectory = true;
   fh.parent = NULL;
   fh.size = numOfBytes;
   fh.contents = blk + sizeof(fileHeader);
-  fh.name = name;
   
   int buf = malloc(numOfBytes);
   
@@ -221,7 +222,7 @@ int do_print(char *name, char *size)
 int do_chdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  /*
+
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   //move up one level
@@ -239,7 +240,7 @@ int do_chdir(char *name, char *size)
   	//block_id childDirectory = currentDirectory.contents
   	//currentDirectory = childDirectory;
   }
-  */
+
   return -1;
 }
 
