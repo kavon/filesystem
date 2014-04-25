@@ -297,6 +297,10 @@ int do_rmdir(char *name, char *size)
 int do_mvdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+  
+  //find directory
+  //fh.name = name;
+  
   return -1;
 }
 
@@ -349,6 +353,10 @@ int do_rmfil(char *name, char *size)
 int do_mvfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+  
+  //find file
+  //fh.name = name;
+  
   return -1;
 }
 
