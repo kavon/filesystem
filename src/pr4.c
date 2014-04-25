@@ -1,5 +1,5 @@
 /* CMPSC 473, Project 4, starter kit
- */
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,27 +15,27 @@ int debug = 0;	// extra output; 1 = on, 0 = off
 /*--------------------------------------------------------------------------------*/
 
 /* The input file (stdin) represents a sequence of file-system commands,
- * which all look like     cmd filename filesize
- *
- * command	action
- * -------	------
- *  root	initialize root directory
- *  print	print current working directory and all descendants
- *  chdir	change current working directory
- *                (.. refers to parent directory, as in Unix)
- *  mkdir	sub-directory create (mk = make)
- *  rmdir	              delete (rm = delete)
- *  mvdir	              rename (mv = move)
- *  mkfil	file create
- *  rmfil	     delete
- *  mvfil	     rename
- *  szfil	     resize (sz = size)
- *  exit        quit the program immediately
- */
+* which all look like cmd filename filesize
+*
+* command action
+* ------- ------
+* root initialize root directory
+* print print current working directory and all descendants
+* chdir change current working directory
+* (.. refers to parent directory, as in Unix)
+* mkdir sub-directory create (mk = make)
+* rmdir delete (rm = delete)
+* mvdir rename (mv = move)
+* mkfil file create
+* rmfil delete
+* mvfil rename
+* szfil resize (sz = size)
+* exit quit the program immediately
+*/
 
 /* The size argument is usually ignored.
- * The return value is 0 (success) or -1 (failure).
- */
+* The return value is 0 (success) or -1 (failure).
+*/
 int do_root (char *name, char *size);
 int do_print(char *name, char *size);
 int do_chdir(char *name, char *size);
@@ -49,10 +49,10 @@ int do_szfil(char *name, char *size);
 int do_exit (char *name, char *size);
 
 struct action {
-  char *cmd;					// pointer to string
+  char *cmd;	// pointer to string
   int (*action)(char *name, char *size);	// pointer to function
 } table[] = {
-    { "root" , do_root  },
+    { "root" , do_root },
     { "print", do_print },
     { "chdir", do_chdir },
     { "mkdir", do_mkdir },
@@ -62,18 +62,18 @@ struct action {
     { "rmfil", do_rmfil },
     { "mvfil", do_mvfil },
     { "szfil", do_szfil },
-    { "exit" , do_exit  },
+    { "exit" , do_exit },
     { NULL, NULL }	// end marker, do not remove
 };
 
 typedef struct fileHeader
 {
-	bool isDirectory;
-	block_id parent;
-	unsigned int size;
-	block_id contents;
-  	char name[128];
-  	block_id currentID;
+bool isDirectory;
+block_id parent;
+unsigned int size;
+block_id contents;
+   char* name[128];
+   block_id currentID;
 } fileHeader;
 
 fileHeader *currentDirectory;
@@ -154,15 +154,15 @@ int main(int argc, char *argv[])
       int found = 0;
       for (struct action *ptr = table; ptr->cmd != NULL; ptr++)
         {
-	  if (strcmp(ptr->cmd, cmd) == 0)
-	    {
-	      found = 1;
-	      int ret = (ptr->action)(fnm, fsz);
-	      if (ret == -1)
-	        { printf("  %s %s %s: failed\n", cmd, fnm, fsz); }
-	      break;
-	    }
-	}
+if (strcmp(ptr->cmd, cmd) == 0)
+{
+found = 1;
+int ret = (ptr->action)(fnm, fsz);
+if (ret == -1)
+{ printf(" %s %s %s: failed\n", cmd, fnm, fsz); }
+break;
+}
+}
       if (!found)
         { printf("command not found: %s\n", cmd); }
     }
@@ -177,30 +177,30 @@ int do_root(char *name, char *size)
   if (debug) printf("%s\n", __func__);
 
   uint64_t numOfBytes = strtoull(size, NULL, 0);
-  fileHeader fh;
+  fileHeader *fh;
   
   if(name == NULL)
   {
-  	initialize("./partition.data", 16384);
-  	numOfBytes = 16384
-  	fh.name = "partition.data";
+   initialize("./partition.data", 16384);
+   numOfBytes = 16384;
+   fh->name = "partition.data";
   }
   else
   {
-  	initialize(name, numOfBytes);
-  	fh.name = name;
+   initialize(name, numOfBytes);
+   fh->name = name;
   }
   
   block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
   
-  fh.isDirectory = true;
-  fh.parent = NULL;
-  fh.size = numOfBytes;
-  fh.contents = blk + sizeof(fileHeader);
+  fh->isDirectory = true;
+  fh->parent = NULL;
+  fh->size = numOfBytes;
+  fh->contents = blk + sizeof(fileHeader);
   
   int buf = malloc(numOfBytes);
   
-  save_block(fh.contents, buf, fh.size);
+  save_block(fh->contents, buf, fh->size);
   
   //Don't need that buffer anymore, we saved to disk
   free(buf);
@@ -228,17 +228,17 @@ int do_chdir(char *name, char *size)
   //move up one level
   if(name == '..')
   {
-  	//find the parent of the currentDirectory
-  	block_id parentDirectory = currentDirectory.parent;
-  	load_block(parentDirectory, currentDirectory, numOfBytes);
-  	currentDirectory = parentDirectory;
-  	
+   //find the parent of the currentDirectory
+   block_id parentDirectory = currentDirectory->parent;
+   load_block(parentDirectory, currentDirectory, numOfBytes);
+   currentDirectory = parentDirectory;
+  
   }
   //move down one level to specified directory
   else
   {
-  	//block_id childDirectory = currentDirectory.contents
-  	//currentDirectory = childDirectory;
+   //block_id childDirectory = currentDirectory.contents
+   //currentDirectory = childDirectory;
   }
 
   return -1;
@@ -252,12 +252,12 @@ int do_mkdir(char *name, char *size)
   
   block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
   
-  fileHeader fh;
-  fh.isDirectory = true;
-  fh.parent = currentDirectory;
-  fh.size = numOfBytes;
-  fh.contents = blk + sizeof(fileHeader);
-  fh.name = name;
+  fileHeader *fh;
+  fh->isDirectory = true;
+  fh->parent = currentDirectory;
+  fh->size = numOfBytes;
+  fh->contents = blk + sizeof(fileHeader);
+  fh->name = name;
   
   int buf = malloc(numOfBytes);
   
@@ -283,13 +283,13 @@ int do_rmdir(char *name, char *size)
   // directory is the current directory
   if(fh.parent == currentDirectory)
   {
-  	// get the block_id from the directory file
-  	block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
-  	free_block(blk);
+   // get the block_id from the directory file
+   block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
+   free_block(blk);
   }
   else
   {
-  	fprintf(stderr, "Directory is not able to be removed!\n");	
+   fprintf(stderr, "Directory is not able to be removed!\n");	
   }
 
   return -1;
@@ -313,12 +313,12 @@ int do_mkfil(char *name, char *size)
   
   block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
   
-  fileHeader fh;
-  fh.isDirectory = false;
-  fh.parent = currentDirectory.currentID;
-  fh.size = numOfBytes;
-  fh.contents = blk + sizeof(fileHeader);
-  fh.name = name;
+  fileHeader *fh;
+  fh->isDirectory = false;
+  fh->parent = currentDirectory->currentID;
+  fh->size = numOfBytes;
+  fh->contents = blk + sizeof(fileHeader);
+  fh->name = name;
   
   int buf = malloc(numOfBytes);
   
@@ -339,13 +339,13 @@ int do_rmfil(char *name, char *size)
   // check that the file is in the current directory
   if(fh.parent == currentDirectory)
   {
-  	// get the block_id from the directory file
-  	block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
-  	free_block(blk);
+   // get the block_id from the directory file
+   block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
+   free_block(blk);
   }
   else
   {
-  	fprintf(stderr, "File does not exist in this directory!\n");	
+   fprintf(stderr, "File does not exist in this directory!\n");	
   }
 
   return -1;
@@ -372,12 +372,12 @@ int do_szfil(char *name, char *size)
   //file already exists
   if()
   {
-  	resize_block(currentDirectory.currentID, numOfBytes);
+   resize_block(currentDirectory.currentID, numOfBytes);
   }
   //file doesn't exist therefore can't resize
   else
   {
-  	fprintf(stderr, "File does not exist! :'(");
+   fprintf(stderr, "File does not exist! :'(");
   }
   
   return -1;
@@ -398,20 +398,20 @@ int do_exit(char *name, char *size)
 
 void parse(char *buf, int *argc, char *argv[])
 {
-  char *delim;          // points to first space delimiter
-  int count = 0;        // number of args
+  char *delim; // points to first space delimiter
+  int count = 0; // number of args
 
-  char whsp[] = " \t\n\v\f\r";          // whitespace characters
+  char whsp[] = " \t\n\v\f\r"; // whitespace characters
 
-  while (1)                             // build the argv list
+  while (1) // build the argv list
     {
-      buf += strspn(buf, whsp);         // skip leading whitespace
-      delim = strpbrk(buf, whsp);       // next whitespace char or NULL
-      if (delim == NULL)                // end of line
+      buf += strspn(buf, whsp); // skip leading whitespace
+      delim = strpbrk(buf, whsp); // next whitespace char or NULL
+      if (delim == NULL) // end of line
         { break; }
-      argv[count++] = buf;              // start argv[i]
-      *delim = '\0';                    // terminate argv[i]
-      buf = delim + 1;                  // start argv[i+1]?
+      argv[count++] = buf; // start argv[i]
+      *delim = '\0'; // terminate argv[i]
+      buf = delim + 1; // start argv[i+1]?
     }
   argv[count] = NULL;
 
@@ -421,4 +421,3 @@ void parse(char *buf, int *argc, char *argv[])
 }
 
 /*--------------------------------------------------------------------------------*/
-
