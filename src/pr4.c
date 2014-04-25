@@ -8,6 +8,8 @@
 
 #include "partitioner.h"
 
+#define DIRECTORYSIZE 1024
+
 /*--------------------------------------------------------------------------------*/
 
 int debug = 0;	// extra output; 1 = on, 0 = off
@@ -71,7 +73,7 @@ typedef struct fileHeader
 bool isDirectory;
 block_id parent;
 unsigned int size;
-block_id contents;
+block_id contents[DIRECTORYSIZE];
 char* name[128];
 block_id currentID;
 } fileHeader;
