@@ -597,12 +597,17 @@ int renameObject(char* name, char* newName, bool isADir) {
     return -1;
   }
 
-  if(strlen(name) > MAX_FILENAME) {
+  if(strlen(name) > MAX_FILENAME || strlen(newName) > MAX_FILENAME) {
     printf("new name too long, max is 128 characters");
     return -1;
   }
 
   if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+    printf("invalid name: %s\n", name);
+    return -1;
+  }
+
+  if(strcmp(newName, ".") == 0 || strcmp(newName, "..") == 0) {
     printf("invalid name: %s\n", name);
     return -1;
   }
@@ -617,6 +622,7 @@ int renameObject(char* name, char* newName, bool isADir) {
   fileHeader *fh = malloc(sizeof(fileHeader));
 
   unsigned int i = 0;
+  int target = -1;
   for(; i < currentDir->size / sizeof(block_id); i++) {
     if(subDir[i] == 0) {
       continue;
@@ -629,11 +635,16 @@ int renameObject(char* name, char* newName, bool isADir) {
     }
 
     if(strcmp(name, fh->name) == 0) {
-      break;
+      target = i;
+    }
+
+    if(strcmp(newName, fh->name) == 0) {
+      printf("cannot rename to an already existing %s\n", (isADir ? "directory" : "file"));
+      return -1;
     }
   }
 
-  if(i == currentDir->size / sizeof(block_id)) {
+  if(target == -1) {
     printf("%s %s does not exist!", (isADir ? "directory" : "file"), name);
     return -1;
   }
