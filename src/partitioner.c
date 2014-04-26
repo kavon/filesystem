@@ -56,7 +56,7 @@ void readPartition(uint64_t offset, void *data, uint64_t numBytes) {
 	}
 
 	if(fread(data, numBytes, 1, part) != 1) {
-		fprintf(stderr, "Error: reading from partition failed.\n");
+		fprintf(stderr, "Error: reading from partition at offset %llu failed.\n", offset);
 		_exit(0xcafebabe);
 	}
 	

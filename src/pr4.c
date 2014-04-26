@@ -199,27 +199,24 @@ int do_root(char *name, char *size)
 }
 
 char* path = NULL;
-int pathLen = 0;
+unsigned int pathLen = 0;
 
 void printAll(fileHeader *dir) {
-  /*
   if(path == NULL) {
     path = calloc(5000, sizeof(char));
     pathLen = 5000;
     path[0] = '.';
     path[1] = '/';
-    printAll(dir);
   }
 
-  if(strlen(path) + strlen(name) + 1 >= pathLen-1) {
+  if(strlen(path) + strlen(dir->name) + 1 >= pathLen-1) {
     path = realloc(path, pathLen + 500);
     pathLen += 500;
-    printAll(dir);
   }
 
   int oldEnd = strlen(path);
 
-  strcat(path, name);
+  strcat(path, dir->name);
 
   printf("%s:\n", path);
 
@@ -229,6 +226,7 @@ void printAll(fileHeader *dir) {
   load_block(dir->contents, child_id, dir->size);
 
   // first we print the files in this directory.
+  bool atLeastOneFile = false;
   for(unsigned int i = 0; i < dir->size / sizeof(block_id); i++) {
     if(child_id[i] == 0) {
       continue;
@@ -241,25 +239,61 @@ void printAll(fileHeader *dir) {
       continue;
     }
 
-    printf("%s,\n", fh.name)
+    printf("  %s, %llu bytes\n", fh->name, fh->size);
+
+    atLeastOneFile = true;
 
   }
 
-  printf()
-  */
+  if(!atLeastOneFile) {
+    printf("  <no files>\n");
+  }
+
+  printf("\n");
+
+  if(dir->name[0] != '\0') {
+    strcat(path, "/");
+  }
+
+  for(unsigned int i = 0; i < dir->size / sizeof(block_id); i++) {
+    if(child_id[i] == 0) {
+      continue;
+    }
+
+    load_block(child_id[i], fh, sizeof(fileHeader));
+
+    if(fh->isDirectory == false) {
+      // already printed!
+      continue;
+    }
+
+    printAll(fh);
+
+  }
+
+  // pop off this part of the path from string.
+
+  path[oldEnd] = '\0';  
+  free(child_id);
+  free(fh);
 
 }
 
 int do_print(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  //printAll(currentDir);
+  printAll(currentDir);
   return 0;
 }
 
 int do_chdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+
+  if(strcmp(name, "") == 0) {
+    printf("specify a directory\n");
+    return -1;
+  }
   
   //move up one level
   if(strcmp(name, "..") == 0) {
@@ -267,6 +301,9 @@ int do_chdir(char *name, char *size)
     if(currentDir->parent != 0) {
       // actually move up a directory.
       load_block(currentDir->parent, currentDir, sizeof(fileHeader));
+    } else {
+      printf("already at root\n");
+      return -1;
     }
 
     return 0;
@@ -312,8 +349,18 @@ int do_mkdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
 
+  if(strcmp(name, "") == 0) {
+    printf("specify a directory name\n");
+    return -1;
+  }
+
   if(strlen(name) > MAX_FILENAME) {
     printf("filename too long, max is 128 characters");
+    return -1;
+  }
+
+  if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+    printf("invalid dir name: %s\n", name);
     return -1;
   }
 
@@ -335,6 +382,10 @@ int do_mkdir(char *name, char *size)
     }
 
     load_block(info[i], temp, sizeof(fileHeader));
+
+    if(temp->isDirectory == false) {
+      continue;
+    }
 
     if(strcmp(temp->name, name) == 0) {
       printf("directory already exists\n");
@@ -426,35 +477,103 @@ int do_mkdir(char *name, char *size)
   // save info and this header.
 
   info[openSlot] = newDir->currentID;
-  save_block(currentDir->contents, info, sizeof(fileHeader));
+  save_block(currentDir->contents, info, currentDir->size);
 
   void *initialContents = calloc(128, sizeof(block_id));
 
   save_block(newDir->currentID, newDir, sizeof(fileHeader));
   save_block(newDir->contents, initialContents, newDir->size);
 
+  free(info);
+  free(temp);
+
   return 0;
+}
+
+void deleteDir(fileHeader *fh) {
+
+  fileHeader *subHead = malloc(sizeof(fileHeader));
+  block_id *child = malloc(sizeof(fh->size));
+
+  load_block(fh->contents, child, fh->size);
+
+  for(unsigned int i = 0; i < fh->size / sizeof(block_id); i++) {
+    if(child[i] == 0) {
+      continue;
+    }
+
+    load_block(child[i], subHead, sizeof(fileHeader));
+
+    if(subHead->isDirectory) {
+
+      deleteDir(subHead);
+
+    } else {
+
+      fileHeader *save = currentDir;
+      currentDir = fh;
+      do_rmfil(subHead->name, NULL);
+      currentDir = save;
+
+    }
+  }
+
+  // now to delete self.
+  free_block(fh->currentID);
+  free(subHead);
+  free(child);
+
 }
 
 int do_rmdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  /*
-  uint64_t numOfBytes = strtoull(size, NULL, 0);
+
+  if(strcmp(name, "") == 0) {
+    printf("specify a directory\n");
+    return -1;
+  }
+
+  if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+    printf("cannot delete %s", name);
+    return -1;
+  }
   
-  // directory is the current directory
-  if(name == currentDirectory->name)
-  {
-   // get the block_id from the directory file
-   block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
-   free_block(blk);
+  // find dir
+  block_id *info = malloc(currentDir->size);
+  load_block(currentDir->contents, info, currentDir->size);
+
+  fileHeader *temp = malloc(sizeof(fileHeader));
+  bool didDelete = false;
+  unsigned int i = 0;
+  for(; i < currentDir->size / sizeof(block_id); i++) {
+    if(info[i] == 0) {
+      continue;
+    }
+
+    load_block(info[i], temp, sizeof(fileHeader));
+
+    if(temp->isDirectory == false) {
+      continue;
+    }
+
+    if(strcmp(temp->name, name) == 0) {
+      deleteDir(temp);
+      didDelete = true;
+      break;
+    }
+
   }
-  else
-  {
-   fprintf(stderr, "Directory is not able to be removed!\n");	
+
+  //zero out id
+  if(didDelete) {
+    info[i] = 0;
+  } else {
+    printf("directory doesn't exist\n");
+    return -1;
   }
-  */
-  return -1;
+
+  return 0;
 }
 
 int do_mvdir(char *name, char *size)
