@@ -259,11 +259,6 @@ block_id resize_block(block_id blk, block_size_t size) {
 	block_header head;
 	readPartition(blk, &head, sizeof(block_header));
 
-	// it's already big enough.
-	if(head.size >= size) {
-		return blk;
-	}
-
 	block_id newBlk = allocate_block(size);
 	if(newBlk == 0) {
 		fprintf(stderr, "Error: request to resize block in partition failed, not enough space!");
@@ -276,6 +271,8 @@ block_id resize_block(block_id blk, block_size_t size) {
 		_exit(-1);
 	}
 
+	// will truncate the file if the request is smaller.
+	
 	load_block(blk, buf, size);
 
 	save_block(newBlk, buf, size);

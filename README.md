@@ -1,7 +1,7 @@
 filesystem
 ==========
 
-A short group project for an Operating Systems course.
+A short ~~group~~ *solo* project for an Operating Systems course.
 
 ### Partition Structure
 

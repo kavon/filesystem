@@ -283,6 +283,8 @@ void printAll(fileHeader *dir) {
 int do_print(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+  printInfo(stdout);
+  printf("\n\n\t* Current Directory Information *\n\n");
   printAll(currentDir);
   return 0;
 }
@@ -583,6 +585,9 @@ int do_rmdir(char *name, char *size)
     return -1;
   }
 
+  free(info);
+  free(temp);
+
   return 0;
 }
 
@@ -638,6 +643,9 @@ int renameObject(char* name, char* newName, bool isADir) {
 
   save_block(subDir[i], fh, sizeof(fileHeader));
 
+  free(fh);
+  free(subDir);
+
   return 0;
 }
 
@@ -668,22 +676,274 @@ int do_mvfil(char *name, char *newName)
 int do_mkfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
-  return -1;
-}
 
+  if(strcmp(name, "") == 0) {
+    printf("specify a file name\n");
+    return -1;
+  }
+
+  if(strlen(name) > MAX_FILENAME) {
+    printf("filename too long, max is 128 characters");
+    return -1;
+  }
+
+  if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+    printf("invalid file name: %s\n", name);
+    return -1;
+  }
+
+  int requestedSize = atoi(size);
+
+  if(requestedSize < 0) {
+    printf("can't allocate negative sized file\n");
+    return -1;
+  }
+
+  // search this directory for a open slot while also checking to see if
+  // there's a name conflict.
+
+  block_id *info = malloc(currentDir->size);
+  load_block(currentDir->contents, info, currentDir->size);
+
+  fileHeader *temp = malloc(sizeof(fileHeader));
+  int openSlot = -1;
+  unsigned int i = 0;
+  for(; i < currentDir->size / sizeof(block_id); i++) {
+    if(info[i] == 0) {
+      if(openSlot == -1) {
+        openSlot = i;
+      }
+      continue;
+    }
+
+    load_block(info[i], temp, sizeof(fileHeader));
+
+    if(temp->isDirectory) {
+      continue;
+    }
+
+    if(strcmp(temp->name, name) == 0) {
+      printf("file already exists\n");
+      return -1;
+    }
+
+  }
+
+  // at this point, there at least isn't a name conflict
+
+  if(openSlot == -1) {
+    // shit, the directory is full.
+
+    block_id old_id = currentDir->currentID;
+
+    currentDir->size = currentDir->size * 2;
+    currentDir->currentID = resize_block(currentDir->currentID, currentDir->size + sizeof(fileHeader));
+    currentDir->contents = currentDir->currentID + sizeof(fileHeader);
+
+    info = realloc(info, currentDir->size);
+    load_block(currentDir->contents, info, currentDir->size);
+
+    // we gotta zero out the new entries, resize does not guarentee that they're zero.
+    // we continue where we left off.
+    for(; i < currentDir->size / sizeof(block_id); i++) {
+      info[i] = 0;
+      if(info[i] == 0 && openSlot == -1) {
+        // trip first time.
+        openSlot = i;
+      }
+    }
+
+    // now there's an open slot, but if the id changed, we need to update parent and children
+    // before continuing.
+    if(old_id != currentDir->currentID) {
+      if(currentDir->parent != 0) {
+        load_block(currentDir->currentID, temp, sizeof(fileHeader));
+
+        block_id *parContent = malloc(temp->size);
+        load_block(temp->contents, parContent, temp->size);
+        bool updateOccured = false;
+
+        for(unsigned int i = 0; i < temp->size / sizeof(block_id) && !updateOccured; i++) {
+          if(parContent[i] == old_id) {
+            parContent[i] = currentDir->currentID;
+            save_block(temp->contents, parContent, temp->size);
+            updateOccured = true;
+          }
+        }
+
+        if(!updateOccured) {
+          printf("directory structure is corrupt.\n");
+          return -1;
+        }
+
+        free(parContent);
+
+      } else {
+        // updating the parent is just saving this as the new rootID
+        saveRootID(currentDir->currentID);
+      }
+
+      //childn' are gettin adopted
+      for(unsigned int k = 0; k < currentDir->size / sizeof(block_id); k++) {
+        if(info[k] == 0) {
+          continue;
+        }
+
+        load_block(info[k], temp, sizeof(fileHeader));
+
+        if(temp->parent != old_id) {
+          printf("directory structure is corrupt.\n");
+          return -1;
+        }
+
+        temp->parent = currentDir->currentID;
+
+        save_block(info[k], temp, sizeof(fileHeader));
+      }
+    }
+  }
+
+  fileHeader *newDir = calloc(1, sizeof(fileHeader));
+
+  newDir->isDirectory = false;
+  newDir->parent = currentDir->currentID;
+  newDir->size = requestedSize;
+  newDir->currentID = allocate_block(newDir->size + sizeof(fileHeader));
+  newDir->contents = newDir->currentID + sizeof(fileHeader);
+  strncpy(newDir->name, name, MAX_FILENAME);
+
+  // save info and this header.
+
+  info[openSlot] = newDir->currentID;
+  save_block(currentDir->contents, info, currentDir->size);
+
+  save_block(newDir->currentID, newDir, sizeof(fileHeader));
+
+  free(info);
+  free(temp);
+
+  return 0;
+}
 int do_rmfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+
+  if(strcmp(name, "") == 0) {
+    printf("specify a file\n");
+    return -1;
+  }
+
+  if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+    printf("cannot delete %s", name);
+    return -1;
+  }
   
-  return -1;
+  // find file
+  block_id *info = malloc(currentDir->size);
+  load_block(currentDir->contents, info, currentDir->size);
+
+  fileHeader *temp = malloc(sizeof(fileHeader));
+  bool didDelete = false;
+  unsigned int i = 0;
+  for(; i < currentDir->size / sizeof(block_id); i++) {
+    if(info[i] == 0) {
+      continue;
+    }
+
+    load_block(info[i], temp, sizeof(fileHeader));
+
+    if(temp->isDirectory) {
+      continue;
+    }
+
+    if(strcmp(temp->name, name) == 0) {
+      free_block(temp->currentID);
+      didDelete = true;
+      break;
+    }
+
+  }
+
+  //zero out id
+  if(didDelete) {
+    info[i] = 0;
+    save_block(currentDir->contents, info, currentDir->size);
+  } else {
+    printf("file doesn't exist\n");
+    return -1;
+  }
+
+  free(info);
+  free(temp);
+
+  return 0;
 }
 
 int do_szfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
   
-  return -1;
+  if(strcmp(name, "") == 0) {
+    printf("specify a file\n");
+    return -1;
+  }
+
+  if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+    printf("cannot resize %s", name);
+    return -1;
+  }
+
+  int requestedSize = atoi(size);
+
+  if(size < 0) {
+    printf("negative sizes don't make sense.\n");
+    return -1;
+  }
+  
+  // find file
+  block_id *info = malloc(currentDir->size);
+  load_block(currentDir->contents, info, currentDir->size);
+
+  fileHeader *temp = malloc(sizeof(fileHeader));
+  bool didResize = false;
+  unsigned int i = 0;
+  for(; i < currentDir->size / sizeof(block_id); i++) {
+    if(info[i] == 0) {
+      continue;
+    }
+
+    load_block(info[i], temp, sizeof(fileHeader));
+
+    if(temp->isDirectory) {
+      continue;
+    }
+
+    if(strcmp(temp->name, name) == 0) {
+      block_size_t newSize = requestedSize + sizeof(fileHeader);
+      if(newSize < temp->size) {
+        printf("warning: truncating file.\n");
+      }
+      temp->size = newSize;
+      temp->currentID = resize_block(temp->currentID, temp->size);
+      didResize = true;
+      break;
+    }
+
+  }
+
+  //update id
+  if(didResize) {
+    info[i] = temp->currentID;
+    save_block(currentDir->contents, info, currentDir->size);
+  } else {
+    printf("file doesn't exist\n");
+    return -1;
+  }
+
+  free(info);
+  free(temp);
+
+  return 0;
 }
 
 int do_exit(char *name, char *size)
