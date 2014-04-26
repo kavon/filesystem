@@ -621,9 +621,8 @@ int renameObject(char* name, char* newName, bool isADir) {
 
   fileHeader *fh = malloc(sizeof(fileHeader));
 
-  unsigned int i = 0;
   int target = -1;
-  for(; i < currentDir->size / sizeof(block_id); i++) {
+  for(unsigned int i = 0; i < currentDir->size / sizeof(block_id); i++) {
     if(subDir[i] == 0) {
       continue;
     }
@@ -652,7 +651,7 @@ int renameObject(char* name, char* newName, bool isADir) {
 
   strncpy(fh->name, newName, MAX_FILENAME);
 
-  save_block(subDir[i], fh, sizeof(fileHeader));
+  save_block(subDir[target], fh, sizeof(fileHeader));
 
   free(fh);
   free(subDir);
