@@ -193,7 +193,7 @@ int do_root(char *name, char *size)
 
     currentDir = calloc(1, sizeof(fileHeader));
     load_block(getRootID(), currentDir, sizeof(fileHeader));
-    
+
     return 0;
   }
 
@@ -304,6 +304,9 @@ void printAll(fileHeader *dir) {
 int do_print(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+
+  if(!calledRoot) { printf("haven't initialized partition yet.\n"); return -1; }
+
   printInfo(stdout);
   printf("\n\n\t* Current Directory Information *\n\n");
   printAll(currentDir);
@@ -313,6 +316,8 @@ int do_print(char *name, char *size)
 int do_chdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+
+  if(!calledRoot) { printf("haven't initialized partition yet.\n"); return -1; }
 
   if(strcmp(name, "") == 0) {
     printf("specify a directory\n");
@@ -372,6 +377,8 @@ int do_chdir(char *name, char *size)
 int do_mkdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+
+  if(!calledRoot) { printf("haven't initialized partition yet.\n"); return -1; }
 
   if(strcmp(name, "") == 0) {
     printf("specify a directory name\n");
@@ -561,6 +568,8 @@ int do_rmdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
 
+  if(!calledRoot) { printf("haven't initialized partition yet.\n"); return -1; }
+
   if(strcmp(name, "") == 0) {
     printf("specify a directory\n");
     return -1;
@@ -684,7 +693,7 @@ int do_mvdir(char *name, char *newName)
 {
   if (debug) printf("%s\n", __func__);
 
-
+  if(!calledRoot) { printf("haven't initialized partition yet.\n"); return -1; }
 
   return renameObject(name, newName, true);
 
@@ -696,7 +705,7 @@ int do_mvfil(char *name, char *newName)
 {
   if (debug) printf("%s\n", __func__);
 
-
+  if(!calledRoot) { printf("haven't initialized partition yet.\n"); return -1; }
 
   return renameObject(name, newName, false);  
 
@@ -707,6 +716,8 @@ int do_mvfil(char *name, char *newName)
 int do_mkfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+
+  if(!calledRoot) { printf("haven't initialized partition yet.\n"); return -1; }
 
   if(strcmp(name, "") == 0) {
     printf("specify a file name\n");
@@ -859,6 +870,8 @@ int do_rmfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
 
+  if(!calledRoot) { printf("haven't initialized partition yet.\n"); return -1; }
+
   if(strcmp(name, "") == 0) {
     printf("specify a file\n");
     return -1;
@@ -913,6 +926,8 @@ int do_rmfil(char *name, char *size)
 int do_szfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+
+  if(!calledRoot) { printf("haven't initialized partition yet.\n"); return -1; }
   
   if(strcmp(name, "") == 0) {
     printf("specify a file\n");
