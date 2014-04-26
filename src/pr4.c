@@ -895,7 +895,7 @@ int do_szfil(char *name, char *size)
 
   int requestedSize = atoi(size);
 
-  if(size < 0) {
+  if(requestedSize < 0) {
     printf("negative sizes don't make sense.\n");
     return -1;
   }
@@ -924,6 +924,7 @@ int do_szfil(char *name, char *size)
       }
       temp->size = requestedSize;
       temp->currentID = resize_block(temp->currentID, temp->size + sizeof(fileHeader));
+      temp->contents = temp->currentID + sizeof(fileHeader);
       didResize = true;
       break;
     }
