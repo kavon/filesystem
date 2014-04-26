@@ -198,6 +198,8 @@ int initialize(char* filename, uint64_t numBytes) {
 		// now we need to initialize the initial free block
 		writePartition(dirPtr->free_block_id, &newBlock, sizeof(block_header));
 
+		fflush(part);
+
 	}
 
 	return 0;

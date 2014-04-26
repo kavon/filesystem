@@ -66,17 +66,19 @@ struct action {
     { NULL, NULL }	// end marker, do not remove
 };
 
+const unsigned int MAX_FILENAME = 128;
+
 typedef struct fileHeader
 {
-bool isDirectory;
-block_id parent;
-unsigned int size;
-block_id contents;
-char* name[128];
-block_id currentID;
+  bool isDirectory;
+  block_id parent;
+  block_id currentID;
+  block_id contents;
+  block_size_t size;
+  char name[MAX_FILENAME+1];   // max filename size is 128 characters
 } fileHeader;
 
-fileHeader *currentDirectory;
+fileHeader *currentDir;
 
 /*--------------------------------------------------------------------------------*/
 
@@ -88,7 +90,7 @@ void parse(char *buf, int *argc, char *argv[]);
 
 void testPartition() {
   // TESTING, REMOVE LATER
-  initialize("./partition.data", 2000000);
+  initialize("./test_partition.data", 2000000);
   
   srand(time(NULL));
 
@@ -126,10 +128,7 @@ void testPartition() {
 }
 
 int main(int argc, char *argv[])
-{
-
-  testPartition();
-  
+{  
   char in[LINESIZE];
   char *cmd, *fnm, *fsz;
   char dummy[] = "";
@@ -176,78 +175,135 @@ int do_root(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
 
-  uint64_t numOfBytes = strtoull(size, NULL, 0);
-  fileHeader *fh;
-  
-  if(name == NULL)
-  {
-   initialize("./partition.data", 16384);
-   numOfBytes = 16384;
-   fh->name = "partition.data";
-  }
-  else
-  {
-   initialize(name, numOfBytes);
-   fh->name = name;
-  }
-  
-  block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
-  
-  fh->isDirectory = true;
-  fh->parent = NULL;
-  fh->size = numOfBytes;
-  fh->contents = blk + sizeof(fileHeader);
-  
-  int buf = malloc(numOfBytes);
-  
-  save_block(fh->contents, buf, fh->size);
-  
-  //Don't need that buffer anymore, we saved to disk
-  free(buf);
-  
-  saveRootID(blk);
-  
-  //set root directory to be current directory
-  currentDirectory = fh;
+  initialize("./partition.data", 64 * 1024 * 1024); // 64MB default partition size.
 
-  return -1;
+  currentDir = calloc(1, sizeof(fileHeader));
+
+  // name left as empty string
+  currentDir->isDirectory = true;
+  currentDir->parent = 0;
+  currentDir->size = 128 * sizeof(block_id);
+  currentDir->currentID = allocate_block(currentDir->size + sizeof(fileHeader));
+  currentDir->contents = currentDir->currentID + sizeof(fileHeader);
+
+  void *initialContents = calloc(128, sizeof(block_id));
+
+  save_block(currentDir->currentID, currentDir, sizeof(fileHeader));
+  save_block(currentDir->contents, initialContents, currentDir->size);
+
+  saveRootID(currentDir->currentID);
+
+  free(initialContents);
+
+  return 0;
+}
+
+char* path = NULL;
+int pathLen = 0;
+
+void printAll(fileHeader *dir) {
+  /*
+  if(path == NULL) {
+    path = calloc(5000, sizeof(char));
+    pathLen = 5000;
+    path[0] = '.';
+    path[1] = '/';
+    printAll(dir);
+  }
+
+  if(strlen(path) + strlen(name) + 1 >= pathLen-1) {
+    path = realloc(path, pathLen + 500);
+    pathLen += 500;
+    printAll(dir);
+  }
+
+  int oldEnd = strlen(path);
+
+  strcat(path, name);
+
+  printf("%s:\n", path);
+
+  fileHeader *fh = malloc(sizeof(fileHeader));
+
+  block_id *child_id = malloc(dir->size);
+  load_block(dir->contents, child_id, dir->size);
+
+  // first we print the files in this directory.
+  for(unsigned int i = 0; i < dir->size / sizeof(block_id); i++) {
+    if(child_id[i] == 0) {
+      continue;
+    }
+
+    load_block(child_id[i], fh, sizeof(fileHeader));
+
+    if(fh->isDirectory) {
+      // we'll print you later bro
+      continue;
+    }
+
+    printf("%s,\n", fh.name)
+
+  }
+
+  printf()
+  */
+
 }
 
 int do_print(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  return -1;
+  //printAll(currentDir);
+  return 0;
 }
 
 int do_chdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-
-  uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   //move up one level
-  if(strcmp(name, "..") == 0)
-  {
-    if(currentDirectory.currentID == getRootID())
-    {
-      printf("Already in root directory");
+  if(strcmp(name, "..") == 0) {
+
+    if(currentDir->parent != 0) {
+      // actually move up a directory.
+      load_block(currentDir->parent, currentDir, sizeof(fileHeader));
     }
-    else
-    {
-      //find the parent of the currentDirectory
-      block_id parentDirectory = currentDirectory->parent;
-      load_block(parentDirectory, currentDirectory, numOfBytes);
-      currentDirectory = parentDirectory;
+
+    return 0;
+  }
+
+  // otherwise, search for the requested directory.
+  block_id *info = malloc(currentDir->size);
+  load_block(currentDir->contents, info, currentDir->size);
+
+  fileHeader *temp = malloc(sizeof(fileHeader));
+
+  for(unsigned int i = 0; i < currentDir->size / sizeof(block_id); i++) {
+    if(info[i] == 0) {
+      continue;
     }
-  
+
+    load_block(info[i], temp, sizeof(fileHeader));
+
+    if(!(temp->isDirectory)) {
+      continue;
+    }
+
+    if(strcmp(temp->name, name) == 0) {
+      // we found it, change directory.
+      free(currentDir);
+      free(info);
+      currentDir = temp;
+      return 0;
+    }
+
   }
-  //move down one level to specified directory
-  else
-  {
-    load_block(, currentDirectory, numOfBytes);
-    //block_id childDirectory = 
-    //currentDirectory = childDirectory;
-  }
+
+  free(info);
+  free(temp);
+
+  // couldn't find the directory, command failed.
+  printf("directory doesn't exist.\n");
 
   return -1;
 }
@@ -255,38 +311,135 @@ int do_chdir(char *name, char *size)
 int do_mkdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
-  uint64_t numOfBytes = strtoull(size, NULL, 0);
-  
-  block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
-  
-  fileHeader *fh;
-  fh->isDirectory = true;
-  fh->parent = currentDirectory;
-  fh->size = numOfBytes;
-  fh->contents = blk + sizeof(fileHeader);
-  fh->name = name;
-  
-  int buf = malloc(numOfBytes);
-  
-  save_block(fh->contents, buf, fh->size);
-  
-  //Don't need that buffer anymore, we saved to disk
-  free(buf);
-  
-  //notify parent of block id
-  resize_block(currentDirectory->currentID, currentDirectory->size + numOfBytes + sizeof(fileHeader));
-  currentDirectory->size += (numOfBytes + sizeof(fileHeader));
-  
-  currentDirectory = fh;
 
-  return -1;
+  if(strlen(name) > MAX_FILENAME) {
+    printf("filename too long, max is 128 characters");
+    return -1;
+  }
+
+  // search this directory for a open slot while also checking to see if
+  // there's a name conflict.
+
+  block_id *info = malloc(currentDir->size);
+  load_block(currentDir->contents, info, currentDir->size);
+
+  fileHeader *temp = malloc(sizeof(fileHeader));
+  int openSlot = -1;
+  unsigned int i = 0;
+  for(; i < currentDir->size / sizeof(block_id); i++) {
+    if(info[i] == 0) {
+      if(openSlot == -1) {
+        openSlot = i;
+      }
+      continue;
+    }
+
+    load_block(info[i], temp, sizeof(fileHeader));
+
+    if(strcmp(temp->name, name) == 0) {
+      printf("directory already exists\n");
+      return -1;
+    }
+
+  }
+
+  // at this point, there at least isn't a name conflict
+
+  if(openSlot == -1) {
+    // shit, the directory is full.
+
+    block_id old_id = currentDir->currentID;
+
+    currentDir->size = currentDir->size * 2;
+    currentDir->currentID = resize_block(currentDir->currentID, currentDir->size + sizeof(fileHeader));
+    currentDir->contents = currentDir->currentID + sizeof(fileHeader);
+
+    info = realloc(info, currentDir->size);
+    load_block(currentDir->contents, info, currentDir->size);
+
+    // we gotta zero out the new entries, resize does not guarentee that they're zero.
+    // we continue where we left off.
+    for(; i < currentDir->size / sizeof(block_id); i++) {
+      info[i] = 0;
+      if(info[i] == 0 && openSlot == -1) {
+        // trip first time.
+        openSlot = i;
+      }
+    }
+
+    // now there's an open slot, but if the id changed, we need to update parent and children
+    // before continuing.
+    if(old_id != currentDir->currentID) {
+      if(currentDir->parent != 0) {
+        load_block(currentDir->currentID, temp, sizeof(fileHeader));
+
+        block_id *parContent = malloc(temp->size);
+        load_block(temp->contents, parContent, temp->size);
+        bool updateOccured = false;
+
+        for(unsigned int i = 0; i < temp->size / sizeof(block_id) && !updateOccured; i++) {
+          if(parContent[i] == old_id) {
+            parContent[i] = currentDir->currentID;
+            save_block(temp->contents, parContent, temp->size);
+            updateOccured = true;
+          }
+        }
+
+        if(!updateOccured) {
+          printf("directory structure is corrupt.\n");
+          return -1;
+        }
+
+        free(parContent);
+
+      }
+
+      //childn' are gettin adopted
+      for(unsigned int k = 0; k < currentDir->size / sizeof(block_id); k++) {
+        if(info[k] == 0) {
+          continue;
+        }
+
+        load_block(info[k], temp, sizeof(fileHeader));
+
+        if(temp->parent != old_id) {
+          printf("directory structure is corrupt.\n");
+          return -1;
+        }
+
+        temp->parent = currentDir->currentID;
+
+        save_block(info[k], temp, sizeof(fileHeader));
+      }
+    }
+  }
+
+  fileHeader *newDir = calloc(1, sizeof(fileHeader));
+
+  newDir->isDirectory = true;
+  newDir->parent = currentDir->currentID;
+  newDir->size = 128 * sizeof(block_id);
+  newDir->currentID = allocate_block(newDir->size + sizeof(fileHeader));
+  newDir->contents = newDir->currentID + sizeof(fileHeader);
+  strncpy(newDir->name, name, MAX_FILENAME);
+
+  // save info and this header.
+
+  info[openSlot] = newDir->currentID;
+  save_block(currentDir->contents, info, sizeof(fileHeader));
+
+  void *initialContents = calloc(128, sizeof(block_id));
+
+  save_block(newDir->currentID, newDir, sizeof(fileHeader));
+  save_block(newDir->contents, initialContents, newDir->size);
+
+  return 0;
 }
 
 int do_rmdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
+  /*
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   // directory is the current directory
@@ -300,7 +453,7 @@ int do_rmdir(char *name, char *size)
   {
    fprintf(stderr, "Directory is not able to be removed!\n");	
   }
-
+  */
   return -1;
 }
 
@@ -318,7 +471,7 @@ int do_mvdir(char *name, char *size)
 int do_mkfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
+  /*
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
@@ -336,18 +489,18 @@ int do_mkfil(char *name, char *size)
   
   //Don't need that buffer anymore, we saved to disk
   free(buf);
-
+  */
   return -1;
 }
 
 int do_rmfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
+  /*
   uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   // check that the file is in the current directory
-  if(/*name == currentDirectory.contents*/)
+  if(name == currentDirectory.contents)
   {
    // get the block_id from the directory file
    block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
@@ -357,7 +510,7 @@ int do_rmfil(char *name, char *size)
   {
    fprintf(stderr, "File does not exist in this directory!\n");	
   }
-
+  */
   return -1;
 }
 
@@ -377,7 +530,7 @@ int do_szfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
   
-  uint64_t numOfBytes = strtoull(size, NULL, 0);
+  //uint64_t numOfBytes = strtoull(size, NULL, 0);
   
   //resize_block(currentDirectory->currentID, numOfBytes);
   
