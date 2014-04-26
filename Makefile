@@ -1,10 +1,13 @@
 CC = gcc
 
+# we ignore unused parameters because of the way pr4.c dispatches functions. some 
+# actions inherently ignore any possible arguments given to them, so the parameters are unused.
+
 ifdef DEBUG
-C_FLAGS = -std=c99 -Wall -Wextra -g -O0
+C_FLAGS = -std=c99 -Wall -Wextra -g -O0 -Wno-unused-parameter
 LINK_FLAG = -O0 -g
 else
-C_FLAGS = -std=c99 -Wall -Wextra -O3
+C_FLAGS = -std=c99 -Wall -Wextra -O3 -Wno-unused-parameter
 endif
 
 

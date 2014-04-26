@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 
 #include "partitioner.h"
 
@@ -66,7 +67,7 @@ struct action {
     { NULL, NULL }	// end marker, do not remove
 };
 
-const unsigned int MAX_FILENAME = 128;
+#define MAX_FILENAME 128
 
 typedef struct fileHeader
 {
@@ -98,11 +99,11 @@ void testPartition() {
 
   block_id blk[num];
 
-  for(int i = 0; i < num; i++) {
+  for(unsigned int i = 0; i < num; i++) {
     blk[i] = allocate_block((rand() % 500) + 1);
   }
 
-  for(int i = 0; i < num * 4; i++) {
+  for(unsigned int i = 0; i < num * 4; i++) {
     block_id one = rand() % num;
     block_id two = rand() % num;
 
@@ -111,13 +112,13 @@ void testPartition() {
     two = temp;
   }
 
-  for(int i = 0; i < num/2; i++) {
+  for(unsigned int i = 0; i < num/2; i++) {
     blk[i] = resize_block(blk[i], (rand() % 1024) + 1);
   }
 
   printInfo(stderr);
 
-  for(int i = 0; i < num; i++) {
+  for(unsigned int i = 0; i < num; i++) {
     free_block(blk[i]);
   }
 
@@ -443,6 +444,9 @@ int do_mkdir(char *name, char *size)
 
         free(parContent);
 
+      } else {
+        // updating the parent is just saving this as the new rootID
+        saveRootID(currentDir->currentID);
       }
 
       //childn' are gettin adopted
@@ -492,8 +496,13 @@ int do_mkdir(char *name, char *size)
 
 void deleteDir(fileHeader *fh) {
 
+  if(!fh->isDirectory) {
+    printf("internal error: trying to deleteDir on a file!\n");
+    exit(1);
+  }
+
   fileHeader *subHead = malloc(sizeof(fileHeader));
-  block_id *child = malloc(sizeof(fh->size));
+  block_id *child = malloc(fh->size);
 
   load_block(fh->contents, child, fh->size);
 
@@ -568,6 +577,7 @@ int do_rmdir(char *name, char *size)
   //zero out id
   if(didDelete) {
     info[i] = 0;
+    save_block(currentDir->contents, info, currentDir->size);
   } else {
     printf("directory doesn't exist\n");
     return -1;
@@ -576,15 +586,67 @@ int do_rmdir(char *name, char *size)
   return 0;
 }
 
-int do_mvdir(char *name, char *size)
+int renameObject(char* name, char* newName, bool isADir) {
+  if(strcmp(name, "") == 0 || strcmp(newName, "") == 0) {
+    printf("must specify name and new name\n");
+    return -1;
+  }
+
+  if(strlen(name) > MAX_FILENAME) {
+    printf("new name too long, max is 128 characters");
+    return -1;
+  }
+
+  if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+    printf("invalid name: %s\n", name);
+    return -1;
+  }
+
+  if(strcmp(name, newName) == 0) {
+    return 0; //nothin to do!
+  }
+  
+  block_id *subDir = malloc(currentDir->size);
+  load_block(currentDir->contents, subDir, currentDir->size);
+
+  fileHeader *fh = malloc(sizeof(fileHeader));
+
+  unsigned int i = 0;
+  for(; i < currentDir->size / sizeof(block_id); i++) {
+    if(subDir[i] == 0) {
+      continue;
+    }
+
+    load_block(subDir[i], fh, sizeof(fileHeader));
+
+    if(fh->isDirectory != isADir) {
+      continue;
+    }
+
+    if(strcmp(name, fh->name) == 0) {
+      break;
+    }
+  }
+
+  if(i == currentDir->size / sizeof(block_id)) {
+    printf("%s %s does not exist!", (isADir ? "directory" : "file"), name);
+    return -1;
+  }
+
+
+  strncpy(fh->name, newName, MAX_FILENAME);
+
+  save_block(subDir[i], fh, sizeof(fileHeader));
+
+  return 0;
+}
+
+int do_mvdir(char *name, char *newName)
 {
   if (debug) printf("%s\n", __func__);
-  /* Need to rename directory: modify in the header and be sure to check for duplicates */
-     
-  //find directory
-  //fh.name = name;
-  
-  return -1;
+
+  return renameObject(name, newName, true);
+
 }
 
 int do_mkfil(char *name, char *size)
@@ -633,16 +695,12 @@ int do_rmfil(char *name, char *size)
   return -1;
 }
 
-int do_mvfil(char *name, char *size)
+int do_mvfil(char *name, char *newName)
 {
   if (debug) printf("%s\n", __func__);
-  /* Need to rename file: modify in the file header and be sure to scan the folder
-     to ensure no duplicates */
-     
-  //find file
-  //fh.name = name;
-  
-  return -1;
+
+  return renameObject(name, newName, true);  
+
 }
 
 int do_szfil(char *name, char *size)
