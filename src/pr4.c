@@ -689,8 +689,8 @@ int do_szfil(char *name, char *size)
 int do_exit(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
+  
   exit(0);
-  return 0;
 }
 
 /*--------------------------------------------------------------------------------*/
