@@ -919,12 +919,11 @@ int do_szfil(char *name, char *size)
     }
 
     if(strcmp(temp->name, name) == 0) {
-      block_size_t newSize = requestedSize + sizeof(fileHeader);
-      if(newSize < temp->size) {
+      if((unsigned int)requestedSize < temp->size) {
         printf("warning: truncating file.\n");
       }
-      temp->size = newSize;
-      temp->currentID = resize_block(temp->currentID, temp->size);
+      temp->size = requestedSize;
+      temp->currentID = resize_block(temp->currentID, temp->size + sizeof(fileHeader));
       didResize = true;
       break;
     }
@@ -934,6 +933,7 @@ int do_szfil(char *name, char *size)
   //update id
   if(didResize) {
     info[i] = temp->currentID;
+    save_block(info[i], temp, sizeof(fileHeader));
     save_block(currentDir->contents, info, currentDir->size);
   } else {
     printf("file doesn't exist\n");
