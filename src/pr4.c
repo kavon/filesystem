@@ -645,71 +645,43 @@ int do_mvdir(char *name, char *newName)
 {
   if (debug) printf("%s\n", __func__);
 
+
+
   return renameObject(name, newName, true);
 
-}
 
-int do_mkfil(char *name, char *size)
-{
-  if (debug) printf("%s\n", __func__);
-  /*
-  uint64_t numOfBytes = strtoull(size, NULL, 0);
-  
-  block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
-  
-  fileHeader *fh;
-  fh->isDirectory = false;
-  fh->parent = currentDirectory->currentID;
-  fh->size = numOfBytes;
-  fh->contents = blk + sizeof(fileHeader);
-  fh->name = name;
-  
-  int buf = malloc(numOfBytes);
-  
-  save_block(fh->contents, buf, fh->size);
-  
-  //Don't need that buffer anymore, we saved to disk
-  free(buf);
-  */
-  return -1;
-}
 
-int do_rmfil(char *name, char *size)
-{
-  if (debug) printf("%s\n", __func__);
-  /*
-  uint64_t numOfBytes = strtoull(size, NULL, 0);
-  
-  // check that the file is in the current directory
-  if(name == currentDirectory.contents)
-  {
-   // get the block_id from the directory file
-   block_id blk = allocate_block(numOfBytes + sizeof(fileHeader));
-   free_block(blk);
-  }
-  else
-  {
-   fprintf(stderr, "File does not exist in this directory!\n");	
-  }
-  */
-  return -1;
 }
 
 int do_mvfil(char *name, char *newName)
 {
   if (debug) printf("%s\n", __func__);
 
-  return renameObject(name, newName, true);  
 
+
+  return renameObject(name, newName, false);  
+
+
+
+}
+
+int do_mkfil(char *name, char *size)
+{
+  if (debug) printf("%s\n", __func__);
+  
+  return -1;
+}
+
+int do_rmfil(char *name, char *size)
+{
+  if (debug) printf("%s\n", __func__);
+  
+  return -1;
 }
 
 int do_szfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
-  //uint64_t numOfBytes = strtoull(size, NULL, 0);
-  
-  //resize_block(currentDirectory->currentID, numOfBytes);
   
   return -1;
 }
