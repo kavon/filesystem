@@ -307,7 +307,8 @@ int do_rmdir(char *name, char *size)
 int do_mvdir(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
+  /* Need to rename directory: modify in the header and be sure to check for duplicates */
+     
   //find directory
   //fh.name = name;
   
@@ -363,7 +364,9 @@ int do_rmfil(char *name, char *size)
 int do_mvfil(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
-  
+  /* Need to rename file: modify in the file header and be sure to scan the folder
+     to ensure no duplicates */
+     
   //find file
   //fh.name = name;
   
