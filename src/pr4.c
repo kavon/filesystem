@@ -172,11 +172,32 @@ break;
 
 /*--------------------------------------------------------------------------------*/
 
+bool calledRoot = false;
+
 int do_root(char *name, char *size)
 {
   if (debug) printf("%s\n", __func__);
 
-  initialize("./partition.data", 64 * 1024 * 1024); // 64MB default partition size.
+  if(calledRoot) {
+    printf("If you want to reinitialize the partition, delete ./partition.data and reopen the program.\n");
+    return -1;
+  }
+
+  calledRoot = true;
+
+  int ret = initialize("./partition.data", 64 * 1024 * 1024); // 64MB default partition size.
+
+  if(ret != 0) {
+    // we opened an existing file. just load the exisiting root.
+    printf("loading exisiting partition ./partition.data...\n");
+
+    currentDir = calloc(1, sizeof(fileHeader));
+    load_block(getRootID(), currentDir, sizeof(fileHeader));
+    
+    return 0;
+  }
+
+  // we got a new file, gotta make a root directory.
 
   currentDir = calloc(1, sizeof(fileHeader));
 

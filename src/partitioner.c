@@ -141,7 +141,7 @@ block_id look_left(block_id blk) {
  * If the file does not exist, one is created with at least the specified
  * number of bytes.
  *
- * Returns a non-zero value if an error occurs.
+ * Returns a non-zero value if it opened an existing file.
  *
  */
 int initialize(char* filename, uint64_t numBytes) {
@@ -159,6 +159,8 @@ int initialize(char* filename, uint64_t numBytes) {
 		partDir = malloc(sizeof(directory));
 		// copy directory to memory.
 		readPartition(0, partDir, sizeof(directory));
+
+		return 1;
 
 	} else {
 		part = fopen(filename, "w+"); // open for read/write, at beginning
@@ -200,9 +202,9 @@ int initialize(char* filename, uint64_t numBytes) {
 
 		fflush(part);
 
-	}
+		return 0;
 
-	return 0;
+	}
 }
 
 /**
