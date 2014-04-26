@@ -32,7 +32,7 @@ Offset |    Type     |  Description
   16   | `uint64_t`  | previous block id, 0 if nothing precedes it.
   24   | `uint64_t`  | next block id, 0 if nothing follows.
 
- ### Directory Structure
+### Directory Structure
 
  For simplicity, all directories and files have a file name limit of 128 characters. Both directories and files share the same file header. Directories are files that start out with enough space in its contents for 128 `block_id` entries which point to file headers. If the directory becomes full it will automatically resize to accomdate more id's.
 
